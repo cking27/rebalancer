@@ -1,11 +1,16 @@
 version: '3.8'
 services:
   backend:
-    build: ./backend/rebalancer.API
+    build: ./backend/rebalancer.sln
+    command: dotnet run --project rebalancer.API/rebalancer.API.csproj
     ports:
-      - "5000:5000"
+      - "5000:7163"
+      - "5001:5116"
+      - "5002:80"
   frontend:
     build: ./frontend/rebalancer-app
-    command: npm start
+    command: npm run dev
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend/rebalancer-app:/app

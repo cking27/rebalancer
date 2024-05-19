@@ -1,0 +1,27 @@
+# dotnet build artifacts
+bin/
+obj/
+
+# .NET Core CLI
+.project
+.vscode/
+*.sln.ide
+
+# NuGet
+*.nuget.props
+*.nuget.targets
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Build Results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
