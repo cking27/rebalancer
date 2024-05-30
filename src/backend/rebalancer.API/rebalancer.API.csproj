@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <ProjectReference Include="..\rebalancer.Domain\rebalancer.Domain.csproj" />
+    <ProjectReference Include="..\rebalancer.Infrastructure\rebalancer.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

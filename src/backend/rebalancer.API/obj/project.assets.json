@@ -88,6 +88,29 @@
         "frameworkReferences": [
           "Microsoft.AspNetCore.App"
         ]
+      },
+      "rebalancer.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v6.0",
+        "compile": {
+          "bin/placeholder/rebalancer.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/rebalancer.Domain.dll": {}
+        }
+      },
+      "rebalancer.Infrastructure/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v6.0",
+        "dependencies": {
+          "rebalancer.Domain": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/rebalancer.Infrastructure.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/rebalancer.Infrastructure.dll": {}
+        }
       }
     }
   },
@@ -429,31 +452,39 @@
         "swashbuckle.aspnetcore.swaggerui.6.5.0.nupkg.sha512",
         "swashbuckle.aspnetcore.swaggerui.nuspec"
       ]
+    },
+    "rebalancer.Domain/1.0.0": {
+      "type": "project",
+      "path": "../rebalancer.Domain/rebalancer.Domain.csproj",
+      "msbuildProject": "../rebalancer.Domain/rebalancer.Domain.csproj"
+    },
+    "rebalancer.Infrastructure/1.0.0": {
+      "type": "project",
+      "path": "../rebalancer.Infrastructure/rebalancer.Infrastructure.csproj",
+      "msbuildProject": "../rebalancer.Infrastructure/rebalancer.Infrastructure.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net6.0": [
-      "Swashbuckle.AspNetCore >= 6.5.0"
+      "Swashbuckle.AspNetCore >= 6.5.0",
+      "rebalancer.Domain >= 1.0.0",
+      "rebalancer.Infrastructure >= 1.0.0"
     ]
   },
   "packageFolders": {
-    "/Users/charlesking/.nuget/packages/": {},
-    "/usr/local/share/dotnet/sdk/NuGetFallbackFolder": {}
+    "/root/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/charlesking/Development/rebalancer/src/backend/rebalancer.API/rebalancer.API.csproj",
+      "projectUniqueName": "/app/rebalancer.API/rebalancer.API.csproj",
       "projectName": "rebalancer.API",
-      "projectPath": "/Users/charlesking/Development/rebalancer/src/backend/rebalancer.API/rebalancer.API.csproj",
-      "packagesPath": "/Users/charlesking/.nuget/packages/",
-      "outputPath": "/Users/charlesking/Development/rebalancer/src/backend/rebalancer.API/obj/",
+      "projectPath": "/app/rebalancer.API/rebalancer.API.csproj",
+      "packagesPath": "/root/.nuget/packages/",
+      "outputPath": "/app/rebalancer.API/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "/usr/local/share/dotnet/sdk/NuGetFallbackFolder"
-      ],
       "configFilePaths": [
-        "/Users/charlesking/.nuget/NuGet/NuGet.Config"
+        "/root/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net6.0"
@@ -464,7 +495,14 @@
       "frameworks": {
         "net6.0": {
           "targetAlias": "net6.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "/app/rebalancer.Domain/rebalancer.Domain.csproj": {
+              "projectPath": "/app/rebalancer.Domain/rebalancer.Domain.csproj"
+            },
+            "/app/rebalancer.Infrastructure/rebalancer.Infrastructure.csproj": {
+              "projectPath": "/app/rebalancer.Infrastructure/rebalancer.Infrastructure.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
@@ -501,7 +539,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/6.0.415/RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/6.0.422/RuntimeIdentifierGraph.json"
       }
     }
   }

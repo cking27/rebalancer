@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rebalancer.Domain", "rebala
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rebalancer.Infrastructure", "rebalancer.Infrastructure\rebalancer.Infrastructure.csproj", "{9C0815AD-375A-4B7B-BBB5-3C7447DFF61D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rebalancer.Application", "rebalancer.Application\rebalancer.Application.csproj", "{53CA01B7-79B6-49F5-994B-98C698854D18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +32,9 @@ Global
 		{9C0815AD-375A-4B7B-BBB5-3C7447DFF61D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9C0815AD-375A-4B7B-BBB5-3C7447DFF61D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9C0815AD-375A-4B7B-BBB5-3C7447DFF61D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53CA01B7-79B6-49F5-994B-98C698854D18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53CA01B7-79B6-49F5-994B-98C698854D18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53CA01B7-79B6-49F5-994B-98C698854D18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53CA01B7-79B6-49F5-994B-98C698854D18}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

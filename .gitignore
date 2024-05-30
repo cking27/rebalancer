@@ -1,0 +1,47 @@
+# .NET Core
+project.lock.json
+.project.json.user
+.project.json-workspace
+nupkg/
+
+# Visual Studio Code
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Temporary files
+tmp/
+temp/
+obj/
+bin/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# NuGet
+*.nuget.props
+*.nuget.targets
+project.nuget.cache
+*.nuget.g.props
+*.nuget.dgspec.json
+
+# Node.js / React
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnp/
+.pnp.js
+.yarn-integrity
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

@@ -10,6 +10,9 @@ obj/
 # NuGet
 *.nuget.props
 *.nuget.targets
+*.nuget.g.props
+*.nuget.g.props
+*.nuget.dgspec.json
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
