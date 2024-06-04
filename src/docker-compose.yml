@@ -1,12 +1,17 @@
 version: '3.8'
 services:
   backend:
-    build: ./backend/rebalancer.sln
-    command: dotnet run --project rebalancer.API/rebalancer.API.csproj
+    image: mcr.microsoft.com/dotnet/sdk:6.0
+    working_dir: /app
+    command: /bin/bash -c "dotnet restore && dotnet watch --project rebalancer.API/rebalancer.API.csproj run --no-restore"
+    volumes:
+      - /Users/charlesking/Development/rebalancer/src/backend:/app
     ports:
-      - "5000:7163"
-      - "5001:5116"
-      - "5002:80"
+      - 5000:80
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_RUNNING_IN_CONTAINER=true
+
   frontend:
     build: ./frontend/rebalancer-app
     command: npm run dev
