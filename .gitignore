@@ -14,7 +14,7 @@ nupkg/
 # Temporary files
 tmp/
 temp/
-obj/
+**/obj/
 bin/
 
 # OS generated files
@@ -31,7 +31,7 @@ Thumbs.db
 *.nuget.targets
 project.nuget.cache
 *.nuget.g.props
-*.nuget.dgspec.json
+
 
 # Node.js / React
 node_modules/
@@ -48,3 +48,5 @@ yarn-debug.log
 src/backend/rebalancer.API/obj/project.nuget.cache
 src/backend/rebalancer.API/obj/rebalancer.API.csproj.nuget.dgspec.json
 src/backend/rebalancer.API/obj/rebalancer.API.csproj.nuget.g.props
+src/backend/rebalancer.API/obj/project.assets.json
+src/backend/rebalancer.API/obj/project.assets.json

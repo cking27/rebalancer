@@ -1,6 +1,6 @@
 # dotnet build artifacts
 bin/
-obj/
+**/obj/
 
 # .NET Core CLI
 .project
