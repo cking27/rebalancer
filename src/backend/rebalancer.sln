@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rebalancer.Infrastructure",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rebalancer.Application", "rebalancer.Application\rebalancer.Application.csproj", "{53CA01B7-79B6-49F5-994B-98C698854D18}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{C1FB8908-62F9-46C7-9360-7EA0EBC8F30F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{53CA01B7-79B6-49F5-994B-98C698854D18}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53CA01B7-79B6-49F5-994B-98C698854D18}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53CA01B7-79B6-49F5-994B-98C698854D18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1FB8908-62F9-46C7-9360-7EA0EBC8F30F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1FB8908-62F9-46C7-9360-7EA0EBC8F30F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1FB8908-62F9-46C7-9360-7EA0EBC8F30F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1FB8908-62F9-46C7-9360-7EA0EBC8F30F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

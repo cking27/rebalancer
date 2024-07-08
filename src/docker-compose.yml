@@ -12,6 +12,16 @@ services:
       - DOTNET_USE_POLLING_FILE_WATCHER=1
       - DOTNET_RUNNING_IN_CONTAINER=true
 
+  tests:
+    image: mcr.microsoft.com/dotnet/sdk:6.0
+    working_dir: /app
+    command: /bin/bash -c "dotnet restore && dotnet watch --project UnitTests/UnitTests.csproj test --no-restore"
+    volumes:
+      - /Users/charlesking/Development/rebalancer/src/backend:/app
+    environment:
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_RUNNING_IN_CONTAINER=true
+
   frontend:
     build: ./frontend/rebalancer-app
     command: npm run dev
@@ -30,6 +40,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
 
 volumes:
   postgres_data:
