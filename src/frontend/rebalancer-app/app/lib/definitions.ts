@@ -86,3 +86,82 @@ export type InvoiceForm = {
   amount: number;
   status: 'pending' | 'paid';
 };
+
+// Portfolio Rebalancer Types
+
+export type Person = {
+  id: number;
+  name: string;
+};
+
+export type Institution = {
+  id: number;
+  name: string;
+};
+
+export type AccountType = 'Brokerage' | 'K401' | 'IRA' | 'RothIRA' | 'Savings' | 'Checking';
+
+export type PositionType = 'MutualFund' | 'ETF' | 'Stock' | 'Bond' | 'Cash' | 'Other';
+
+export type AssetClass = 'Equity' | 'FixedIncome' | 'Cash' | 'Other';
+
+export type Account = {
+  id: number;
+  name: string;
+  institutionId: number;
+  institutionName?: string;
+  ownerId: number;
+  ownerName?: string;
+  accountType: AccountType;
+  isRetirement: boolean;
+};
+
+export type Position = {
+  id: number;
+  accountId: number;
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+};
+
+export type AccountWithPositions = Account & {
+  positions: Position[];
+};
+
+export type AllocationItem = {
+  category: string;
+  value: number;
+  percentage: number;
+};
+
+export type AllocationSummary = {
+  totalValue: number;
+  byAssetClass: AllocationItem[];
+  byPositionType: AllocationItem[];
+  byPosition: AllocationItem[];
+};
+
+export type CreatePersonRequest = {
+  name: string;
+};
+
+export type CreateInstitutionRequest = {
+  name: string;
+};
+
+export type CreateAccountRequest = {
+  name: string;
+  institutionId: number;
+  ownerId: number;
+  accountType: AccountType;
+  isRetirement: boolean;
+};
+
+export type CreatePositionRequest = {
+  accountId: number;
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+};

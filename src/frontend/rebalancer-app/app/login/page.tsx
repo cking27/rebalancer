@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { lusitana } from '@/app/ui/fonts';
 import {
@@ -11,27 +10,11 @@ import { ArrowRightIcon } from '@heroicons/react/20/solid';
 import { Button } from '@/app/ui/button';
 
 export default function LoginPage() {
-  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSuccess(true);
-    setTimeout(() => {
-      router.push('/dashboard/accounts');
-    }, 1000);
+  const handleLogin = () => {
+    router.push('/dashboard/accounts');
   };
-
-  if (success) {
-    return (
-      <main className="flex items-center justify-center md:h-screen">
-        <div className="text-center">
-          <p className={`${lusitana.className} text-3xl text-green-600`}>Success!</p>
-          <p className="text-gray-500 mt-2">Redirecting...</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="flex items-center justify-center md:h-screen">
@@ -41,7 +24,7 @@ export default function LoginPage() {
             <p className="text-2xl font-bold">KingRebal</p>
           </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-3">
           <div className="flex-1 rounded-lg bg-gray-50 px-6 pb-4 pt-8">
             <h1 className={`${lusitana.className} mb-3 text-2xl`}>
               Please log in to continue.
@@ -61,7 +44,6 @@ export default function LoginPage() {
                     type="email"
                     name="email"
                     placeholder="Enter your email address"
-                    required
                   />
                   <AtSymbolIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
                 </div>
@@ -80,18 +62,16 @@ export default function LoginPage() {
                     type="password"
                     name="password"
                     placeholder="Enter password"
-                    required
-                    minLength={6}
                   />
                   <KeyIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
                 </div>
               </div>
             </div>
-            <Button className="mt-4 w-full">
+            <Button className="mt-4 w-full" onClick={handleLogin}>
               Log in <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
             </Button>
           </div>
-        </form>
+        </div>
       </div>
     </main>
   );

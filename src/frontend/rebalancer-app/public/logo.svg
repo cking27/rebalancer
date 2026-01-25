@@ -1,0 +1,43 @@
+<svg
+  width="220"
+  height="50"
+  viewBox="0 0 220 50"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Icon -->
+  <g transform="translate(0,2)">
+    <!-- Crown -->
+    <path
+      d="M15 8 L20 3 L25 8 L30 3 L35 8 L33 12 H17 Z"
+      fill="#ffffff"
+    />
+
+    <!-- Circle -->
+    <circle cx="25" cy="28" r="16" fill="#2563eb"/>
+
+    <!-- RK Text -->
+    <text
+      x="25"
+      y="33"
+      text-anchor="middle"
+      font-size="13"
+      font-weight="700"
+      fill="#ffffff"
+      font-family="Arial, Helvetica, sans-serif"
+    >
+      RK
+    </text>
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    x="55"
+    y="32"
+    font-size="20"
+    font-weight="700"
+    fill="#2563eb"
+    font-family="Arial, Helvetica, sans-serif"
+  >
+    Rebalance King
+  </text>
+</svg>
