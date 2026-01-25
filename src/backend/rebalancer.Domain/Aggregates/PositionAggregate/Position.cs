@@ -8,8 +8,10 @@ public class Position
     public PositionType PositionType { get; private set; }
     public AssetClass AssetClass { get; private set; }
     public decimal Value { get; private set; }
+    public int? AssetCategoryId { get; private set; }
 
     public Account? Account { get; private set; }
+    public AssetCategory? AssetCategory { get; private set; }
 
     private Position()
     {
@@ -35,11 +37,12 @@ public class Position
         Value = value;
     }
 
-    public void Update(string name, PositionType positionType, AssetClass assetClass, decimal value)
+    public void Update(string name, PositionType positionType, AssetClass assetClass, decimal value, int? assetCategoryId)
     {
         Name = name;
         PositionType = positionType;
         AssetClass = assetClass;
         Value = value;
+        AssetCategoryId = assetCategoryId;
     }
 }

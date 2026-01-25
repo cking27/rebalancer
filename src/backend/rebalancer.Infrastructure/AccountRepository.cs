@@ -34,6 +34,7 @@ public class AccountRepository : IAccountRepository
             .Include(a => a.Institution)
             .Include(a => a.Owner)
             .Include(a => a.Positions)
+                .ThenInclude(p => p.AssetCategory)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 

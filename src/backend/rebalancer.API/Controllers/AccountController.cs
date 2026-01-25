@@ -77,7 +77,9 @@ public class AccountController : ControllerBase
                 Name = p.Name,
                 PositionType = p.PositionType.ToString(),
                 AssetClass = p.AssetClass.ToString(),
-                Value = p.Value
+                Value = p.Value,
+                AssetCategoryId = p.AssetCategoryId,
+                AssetCategoryName = p.AssetCategory?.Name
             }).ToList()
         });
     }

@@ -16,12 +16,14 @@ public class PositionRepository : IPositionRepository
     {
         return await _context.Positions
             .Include(p => p.Account)
+            .Include(p => p.AssetCategory)
             .ToListAsync();
     }
 
     public async Task<List<Position>> GetByAccountIdAsync(int accountId)
     {
         return await _context.Positions
+            .Include(p => p.AssetCategory)
             .Where(p => p.AccountId == accountId)
             .ToListAsync();
     }
@@ -30,6 +32,7 @@ public class PositionRepository : IPositionRepository
     {
         return await _context.Positions
             .Include(p => p.Account)
+            .Include(p => p.AssetCategory)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 

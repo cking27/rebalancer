@@ -6,6 +6,9 @@ import {
   DocumentDuplicateIcon,
   BuildingLibraryIcon,
   ChartPieIcon,
+  TagIcon,
+  CubeIcon,
+  ScaleIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -16,6 +19,9 @@ const links = [
   { name: 'People', href: '/dashboard/people', icon: UserGroupIcon },
   { name: 'Institutions', href: '/dashboard/institutions', icon: BuildingLibraryIcon },
   { name: 'Accounts', href: '/dashboard/accounts', icon: DocumentDuplicateIcon },
+  { name: 'Categories', href: '/dashboard/categories', icon: TagIcon },
+  { name: 'Models', href: '/dashboard/models', icon: CubeIcon },
+  { name: 'Compare', href: '/dashboard/compare', icon: ScaleIcon },
   { name: 'Allocation', href: '/dashboard/allocation', icon: ChartPieIcon },
 ];
 

@@ -9,6 +9,14 @@ import {
   CreateInstitutionRequest,
   CreateAccountRequest,
   CreatePositionRequest,
+  UpdatePositionRequest,
+  AssetCategory,
+  AssetCategoryTree,
+  CreateAssetCategoryRequest,
+  Model,
+  CreateModelRequest,
+  UpdateModelRequest,
+  CompareResult,
 } from './definitions';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
@@ -144,7 +152,7 @@ export async function createPosition(data: CreatePositionRequest): Promise<Posit
   });
 }
 
-export async function updatePosition(id: number, data: Omit<CreatePositionRequest, 'accountId'>): Promise<void> {
+export async function updatePosition(id: number, data: UpdatePositionRequest): Promise<void> {
   return fetchApi<void>(`/Position/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -163,4 +171,73 @@ export async function getAllocation(accountIds?: number[]): Promise<AllocationSu
     ? `?${accountIds.map(id => `accountIds=${id}`).join('&')}`
     : '';
   return fetchApi<AllocationSummary>(`/Allocation${params}`);
+}
+
+// Asset Categories API
+export async function getAssetCategories(): Promise<AssetCategory[]> {
+  return fetchApi<AssetCategory[]>('/AssetCategory');
+}
+
+export async function getAssetCategoriesTree(): Promise<AssetCategoryTree[]> {
+  return fetchApi<AssetCategoryTree[]>('/AssetCategory/tree');
+}
+
+export async function getAssetCategory(id: number): Promise<AssetCategory> {
+  return fetchApi<AssetCategory>(`/AssetCategory/${id}`);
+}
+
+export async function createAssetCategory(data: CreateAssetCategoryRequest): Promise<AssetCategory> {
+  return fetchApi<AssetCategory>('/AssetCategory', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAssetCategory(id: number, data: CreateAssetCategoryRequest): Promise<void> {
+  return fetchApi<void>(`/AssetCategory/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAssetCategory(id: number): Promise<void> {
+  return fetchApi<void>(`/AssetCategory/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// Models API
+export async function getModels(): Promise<Model[]> {
+  return fetchApi<Model[]>('/Model');
+}
+
+export async function getModel(id: number): Promise<Model> {
+  return fetchApi<Model>(`/Model/${id}`);
+}
+
+export async function createModel(data: CreateModelRequest): Promise<Model> {
+  return fetchApi<Model>('/Model', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateModel(id: number, data: UpdateModelRequest): Promise<void> {
+  return fetchApi<void>(`/Model/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteModel(id: number): Promise<void> {
+  return fetchApi<void>(`/Model/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function compareToModel(modelId: number, accountIds: number[]): Promise<CompareResult> {
+  return fetchApi<CompareResult>(`/Model/${modelId}/compare`, {
+    method: 'POST',
+    body: JSON.stringify({ accountIds }),
+  });
 }

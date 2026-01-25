@@ -27,7 +27,9 @@ public class PositionController : ControllerBase
             Name = p.Name,
             PositionType = p.PositionType.ToString(),
             AssetClass = p.AssetClass.ToString(),
-            Value = p.Value
+            Value = p.Value,
+            AssetCategoryId = p.AssetCategoryId,
+            AssetCategoryName = p.AssetCategory?.Name
         }));
     }
 
@@ -45,7 +47,9 @@ public class PositionController : ControllerBase
             Name = position.Name,
             PositionType = position.PositionType.ToString(),
             AssetClass = position.AssetClass.ToString(),
-            Value = position.Value
+            Value = position.Value,
+            AssetCategoryId = position.AssetCategoryId,
+            AssetCategoryName = position.AssetCategory?.Name
         });
     }
 
@@ -60,7 +64,9 @@ public class PositionController : ControllerBase
             Name = p.Name,
             PositionType = p.PositionType.ToString(),
             AssetClass = p.AssetClass.ToString(),
-            Value = p.Value
+            Value = p.Value,
+            AssetCategoryId = p.AssetCategoryId,
+            AssetCategoryName = p.AssetCategory?.Name
         }));
     }
 
@@ -89,7 +95,9 @@ public class PositionController : ControllerBase
             Name = created.Name,
             PositionType = created.PositionType.ToString(),
             AssetClass = created.AssetClass.ToString(),
-            Value = created.Value
+            Value = created.Value,
+            AssetCategoryId = created.AssetCategoryId,
+            AssetCategoryName = null
         });
     }
 
@@ -106,7 +114,7 @@ public class PositionController : ControllerBase
         if (!Enum.TryParse<AssetClass>(request.AssetClass, out var assetClass))
             return BadRequest("Invalid asset class");
 
-        position.Update(request.Name, positionType, assetClass, request.Value);
+        position.Update(request.Name, positionType, assetClass, request.Value, request.AssetCategoryId);
         await _positionRepository.UpdateAsync(position);
         return NoContent();
     }
@@ -127,6 +135,8 @@ public class PositionDto
     public string PositionType { get; set; } = string.Empty;
     public string AssetClass { get; set; } = string.Empty;
     public decimal Value { get; set; }
+    public int? AssetCategoryId { get; set; }
+    public string? AssetCategoryName { get; set; }
 }
 
 public class CreatePositionRequest
@@ -144,4 +154,5 @@ public class UpdatePositionRequest
     public string PositionType { get; set; } = string.Empty;
     public string AssetClass { get; set; } = string.Empty;
     public decimal Value { get; set; }
+    public int? AssetCategoryId { get; set; }
 }

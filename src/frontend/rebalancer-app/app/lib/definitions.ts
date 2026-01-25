@@ -123,6 +123,8 @@ export type Position = {
   positionType: PositionType;
   assetClass: AssetClass;
   value: number;
+  assetCategoryId?: number | null;
+  assetCategoryName?: string | null;
 };
 
 export type AccountWithPositions = Account & {
@@ -164,4 +166,88 @@ export type CreatePositionRequest = {
   positionType: PositionType;
   assetClass: AssetClass;
   value: number;
+};
+
+export type UpdatePositionRequest = {
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+  assetCategoryId?: number | null;
+};
+
+// Asset Category Types
+
+export type AssetCategory = {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  displayOrder: number;
+};
+
+export type AssetCategoryTree = AssetCategory & {
+  children: AssetCategoryTree[];
+};
+
+export type CreateAssetCategoryRequest = {
+  name: string;
+  parentId?: number | null;
+  displayOrder: number;
+};
+
+// Model Types
+
+export type ModelAllocation = {
+  id: number;
+  assetCategoryId: number;
+  assetCategoryName?: string | null;
+  targetPercentage: number;
+};
+
+export type Model = {
+  id: number;
+  name: string;
+  description?: string | null;
+  allocations: ModelAllocation[];
+};
+
+export type CreateModelAllocationRequest = {
+  assetCategoryId: number;
+  targetPercentage: number;
+};
+
+export type CreateModelRequest = {
+  name: string;
+  description?: string | null;
+  allocations: CreateModelAllocationRequest[];
+};
+
+export type UpdateModelRequest = CreateModelRequest;
+
+// Compare Types
+
+export type CategoryComparison = {
+  categoryId: number;
+  categoryName: string;
+  targetPercentage: number;
+  actualPercentage: number;
+  differencePercentage: number;
+  differenceValue: number;
+  recommendation: string;
+  parentId?: number | null;
+  depth: number;
+  isLeaf: boolean;
+};
+
+export type UnmappedPosition = {
+  positionId: number;
+  positionName: string;
+  value: number;
+};
+
+export type CompareResult = {
+  modelName: string;
+  totalValue: number;
+  comparisons: CategoryComparison[];
+  unmappedPositions: UnmappedPosition[];
 };

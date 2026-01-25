@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AccountWithPositions, Position, PositionType, AssetClass } from '@/app/lib/definitions';
-import { getAccountWithPositions, createPosition, updatePosition, deletePosition } from '@/app/lib/api';
+import { AccountWithPositions, Position, PositionType, AssetClass, AssetCategory } from '@/app/lib/definitions';
+import { getAccountWithPositions, createPosition, updatePosition, deletePosition, getAssetCategories } from '@/app/lib/api';
 import { ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 const positionTypes: PositionType[] = ['MutualFund', 'ETF', 'Stock', 'Bond', 'Cash', 'Other'];
@@ -32,6 +32,7 @@ export default function AccountDetailPage() {
   const accountId = Number(params.id);
 
   const [account, setAccount] = useState<AccountWithPositions | null>(null);
+  const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -41,19 +42,25 @@ export default function AccountDetailPage() {
     positionType: 'MutualFund' as PositionType,
     assetClass: 'Equity' as AssetClass,
     value: 0,
+    assetCategoryId: null as number | null,
   });
   const [editPosition, setEditPosition] = useState({
     name: '',
     positionType: 'MutualFund' as PositionType,
     assetClass: 'Equity' as AssetClass,
     value: 0,
+    assetCategoryId: null as number | null,
   });
 
   const fetchAccount = async () => {
     try {
       setLoading(true);
-      const data = await getAccountWithPositions(accountId);
-      setAccount(data);
+      const [accountData, categoriesData] = await Promise.all([
+        getAccountWithPositions(accountId),
+        getAssetCategories(),
+      ]);
+      setAccount(accountData);
+      setCategories(categoriesData);
       setError(null);
     } catch (err) {
       setError('Failed to load account');
@@ -75,9 +82,12 @@ export default function AccountDetailPage() {
     try {
       await createPosition({
         accountId,
-        ...newPosition,
+        name: newPosition.name,
+        positionType: newPosition.positionType,
+        assetClass: newPosition.assetClass,
+        value: newPosition.value,
       });
-      setNewPosition({ name: '', positionType: 'MutualFund', assetClass: 'Equity', value: 0 });
+      setNewPosition({ name: '', positionType: 'MutualFund', assetClass: 'Equity', value: 0, assetCategoryId: null });
       setIsAdding(false);
       await fetchAccount();
     } catch (err) {
@@ -92,7 +102,13 @@ export default function AccountDetailPage() {
       return;
     }
     try {
-      await updatePosition(id, editPosition);
+      await updatePosition(id, {
+        name: editPosition.name,
+        positionType: editPosition.positionType,
+        assetClass: editPosition.assetClass,
+        value: editPosition.value,
+        assetCategoryId: editPosition.assetCategoryId,
+      });
       setEditingId(null);
       await fetchAccount();
     } catch (err) {
@@ -119,6 +135,7 @@ export default function AccountDetailPage() {
       positionType: position.positionType,
       assetClass: position.assetClass,
       value: position.value,
+      assetCategoryId: position.assetCategoryId ?? null,
     });
   };
 
@@ -228,7 +245,7 @@ export default function AccountDetailPage() {
               Save
             </button>
             <button
-              onClick={() => { setIsAdding(false); setNewPosition({ name: '', positionType: 'MutualFund', assetClass: 'Equity', value: 0 }); }}
+              onClick={() => { setIsAdding(false); setNewPosition({ name: '', positionType: 'MutualFund', assetClass: 'Equity', value: 0, assetCategoryId: null }); }}
               className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
             >
               Cancel
@@ -244,6 +261,7 @@ export default function AccountDetailPage() {
               <th className="text-left py-3 px-4">Name</th>
               <th className="text-left py-3 px-4">Type</th>
               <th className="text-left py-3 px-4">Asset Class</th>
+              <th className="text-left py-3 px-4">Category</th>
               <th className="text-right py-3 px-4">Value</th>
               <th className="text-right py-3 px-4">% of Account</th>
               <th className="text-right py-3 px-4">Actions</th>
@@ -252,7 +270,7 @@ export default function AccountDetailPage() {
           <tbody>
             {account.positions.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-4 text-gray-500">
+                <td colSpan={7} className="text-center py-4 text-gray-500">
                   No positions found. Add one to get started.
                 </td>
               </tr>
@@ -291,6 +309,18 @@ export default function AccountDetailPage() {
                           ))}
                         </select>
                       </td>
+                      <td className="py-3 px-4">
+                        <select
+                          value={editPosition.assetCategoryId ?? ''}
+                          onChange={(e) => setEditPosition({ ...editPosition, assetCategoryId: e.target.value ? Number(e.target.value) : null })}
+                          className="border rounded-md px-2 py-1 w-full"
+                        >
+                          <option value="">None</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-4 text-right">
                         <input
                           type="number"
@@ -324,6 +354,11 @@ export default function AccountDetailPage() {
                       <td className="py-3 px-4 font-medium">{position.name}</td>
                       <td className="py-3 px-4">{positionTypeLabels[position.positionType]}</td>
                       <td className="py-3 px-4">{assetClassLabels[position.assetClass]}</td>
+                      <td className="py-3 px-4">
+                        {position.assetCategoryName || (
+                          <span className="text-gray-400">Not assigned</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-right">{formatCurrency(position.value)}</td>
                       <td className="py-3 px-4 text-right">
                         {totalValue > 0 ? ((position.value / totalValue) * 100).toFixed(1) : 0}%
