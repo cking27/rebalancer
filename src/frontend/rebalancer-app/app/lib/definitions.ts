@@ -86,3 +86,168 @@ export type InvoiceForm = {
   amount: number;
   status: 'pending' | 'paid';
 };
+
+// Portfolio Rebalancer Types
+
+export type Person = {
+  id: number;
+  name: string;
+};
+
+export type Institution = {
+  id: number;
+  name: string;
+};
+
+export type AccountType = 'Brokerage' | 'K401' | 'IRA' | 'RothIRA' | 'Savings' | 'Checking';
+
+export type PositionType = 'MutualFund' | 'ETF' | 'Stock' | 'Bond' | 'Cash' | 'Other';
+
+export type AssetClass = 'Equity' | 'FixedIncome' | 'Cash' | 'Other';
+
+export type Account = {
+  id: number;
+  name: string;
+  institutionId: number;
+  institutionName?: string;
+  ownerId: number;
+  ownerName?: string;
+  accountType: AccountType;
+  isRetirement: boolean;
+};
+
+export type Position = {
+  id: number;
+  accountId: number;
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+  assetCategoryId?: number | null;
+  assetCategoryName?: string | null;
+};
+
+export type AccountWithPositions = Account & {
+  positions: Position[];
+};
+
+export type AllocationItem = {
+  category: string;
+  value: number;
+  percentage: number;
+};
+
+export type AllocationSummary = {
+  totalValue: number;
+  byAssetClass: AllocationItem[];
+  byPositionType: AllocationItem[];
+  byPosition: AllocationItem[];
+};
+
+export type CreatePersonRequest = {
+  name: string;
+};
+
+export type CreateInstitutionRequest = {
+  name: string;
+};
+
+export type CreateAccountRequest = {
+  name: string;
+  institutionId: number;
+  ownerId: number;
+  accountType: AccountType;
+  isRetirement: boolean;
+};
+
+export type CreatePositionRequest = {
+  accountId: number;
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+};
+
+export type UpdatePositionRequest = {
+  name: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
+  value: number;
+  assetCategoryId?: number | null;
+};
+
+// Asset Category Types
+
+export type AssetCategory = {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  displayOrder: number;
+};
+
+export type AssetCategoryTree = AssetCategory & {
+  children: AssetCategoryTree[];
+};
+
+export type CreateAssetCategoryRequest = {
+  name: string;
+  parentId?: number | null;
+  displayOrder: number;
+};
+
+// Model Types
+
+export type ModelAllocation = {
+  id: number;
+  assetCategoryId: number;
+  assetCategoryName?: string | null;
+  targetPercentage: number;
+};
+
+export type Model = {
+  id: number;
+  name: string;
+  description?: string | null;
+  allocations: ModelAllocation[];
+};
+
+export type CreateModelAllocationRequest = {
+  assetCategoryId: number;
+  targetPercentage: number;
+};
+
+export type CreateModelRequest = {
+  name: string;
+  description?: string | null;
+  allocations: CreateModelAllocationRequest[];
+};
+
+export type UpdateModelRequest = CreateModelRequest;
+
+// Compare Types
+
+export type CategoryComparison = {
+  categoryId: number;
+  categoryName: string;
+  targetPercentage: number;
+  actualPercentage: number;
+  differencePercentage: number;
+  differenceValue: number;
+  recommendation: string;
+  parentId?: number | null;
+  depth: number;
+  isLeaf: boolean;
+};
+
+export type UnmappedPosition = {
+  positionId: number;
+  positionName: string;
+  value: number;
+};
+
+export type CompareResult = {
+  modelName: string;
+  totalValue: number;
+  comparisons: CategoryComparison[];
+  unmappedPositions: UnmappedPosition[];
+};

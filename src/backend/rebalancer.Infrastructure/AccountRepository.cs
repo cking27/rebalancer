@@ -1,49 +1,63 @@
-﻿using rebalancer.Domain;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using rebalancer.Domain;
 
-namespace rebalancer.Infrastructure
+namespace rebalancer.Infrastructure;
+
+public class AccountRepository : IAccountRepository
 {
-    public class AccountRepository : IAccountRepository
+    private readonly RebalancerDbContext _context;
+
+    public AccountRepository(RebalancerDbContext context)
     {
-        public Task<List<Account>> GetAsync()
+        _context = context;
+    }
+
+    public async Task<List<Account>> GetAsync()
+    {
+        return await _context.Accounts
+            .Include(a => a.Institution)
+            .Include(a => a.Owner)
+            .ToListAsync();
+    }
+
+    public async Task<Account?> GetAsync(int id)
+    {
+        return await _context.Accounts
+            .Include(a => a.Institution)
+            .Include(a => a.Owner)
+            .FirstOrDefaultAsync(a => a.Id == id);
+    }
+
+    public async Task<Account?> GetWithPositionsAsync(int id)
+    {
+        return await _context.Accounts
+            .Include(a => a.Institution)
+            .Include(a => a.Owner)
+            .Include(a => a.Positions)
+                .ThenInclude(p => p.AssetCategory)
+            .FirstOrDefaultAsync(a => a.Id == id);
+    }
+
+    public async Task<Account> AddAsync(Account account)
+    {
+        _context.Accounts.Add(account);
+        await _context.SaveChangesAsync();
+        return account;
+    }
+
+    public async Task UpdateAsync(Account account)
+    {
+        _context.Accounts.Update(account);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(int id)
+    {
+        var account = await _context.Accounts.FindAsync(id);
+        if (account != null)
         {
-         // return back dummy data
-            return Task.FromResult(new List<Account>
-            {
-                new Account(1, "dummy"),
-                new Account(2, "dummy"),
-                new Account(3, "dummy")
-            });  
-
-        }
-
-        public Task<Account> GetAsync(int id)
-        {
-            // TODO: Implement logic to retrieve an account by id from the database
-
-            return Task.FromResult(new Account(1, "dummy"));
-        }
-
-        public Task AddAsync(Account account)
-        {
-            // TODO: Implement logic to add an account to the database
-
-            throw new NotImplementedException();
-        }
-
-        public Task UpdateAsync(Account account)
-        {
-            // TODO: Implement logic to update an account in the database
-
-            throw new NotImplementedException();
-        }
-
-        public Task DeleteAsync(int id)
-        {
-            // TODO: Implement logic to delete an account from the database
-
-            throw new NotImplementedException();
+            _context.Accounts.Remove(account);
+            await _context.SaveChangesAsync();
         }
     }
 }
