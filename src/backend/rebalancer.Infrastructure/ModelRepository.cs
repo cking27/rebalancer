@@ -68,6 +68,7 @@ public class ModelRepository : IModelRepository
     {
         return await _context.Positions
             .Include(p => p.AssetCategory)
+            .Include(p => p.Account)
             .Where(p => accountIds.Contains(p.AccountId))
             .ToListAsync();
     }

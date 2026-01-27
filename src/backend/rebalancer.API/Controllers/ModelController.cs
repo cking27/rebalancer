@@ -200,6 +200,19 @@ public class ModelController : ControllerBase
             return !descendants.Any(d => categoriesWithAllocations.Contains(d));
         }
 
+        // Get depth for display ordering
+        int GetDepth(int catId)
+        {
+            int depth = 0;
+            var cat = categoryById.GetValueOrDefault(catId);
+            while (cat?.ParentId != null)
+            {
+                depth++;
+                cat = categoryById.GetValueOrDefault(cat.ParentId.Value);
+            }
+            return depth;
+        }
+
         var comparisons = new List<CategoryComparisonDto>();
         foreach (var allocation in model.Allocations)
         {
@@ -248,19 +261,6 @@ public class ModelController : ControllerBase
                     recommendation = "On target";
             }
 
-            // Get depth for display ordering
-            int GetDepth(int catId)
-            {
-                int depth = 0;
-                var cat = categoryById.GetValueOrDefault(catId);
-                while (cat?.ParentId != null)
-                {
-                    depth++;
-                    cat = categoryById.GetValueOrDefault(cat.ParentId.Value);
-                }
-                return depth;
-            }
-
             comparisons.Add(new CategoryComparisonDto
             {
                 CategoryId = allocation.AssetCategoryId,
@@ -289,12 +289,188 @@ public class ModelController : ControllerBase
                 Value = p.Value
             }).ToList();
 
+        // === Per-Account Breakdowns ===
+        var accountBreakdowns = new List<AccountBreakdownDto>();
+        var positionsByAccount = positions.GroupBy(p => p.AccountId);
+
+        foreach (var accountGroup in positionsByAccount)
+        {
+            var accountPositions = accountGroup.ToList();
+            var account = accountPositions.First().Account;
+            var accountValue = accountPositions.Sum(p => p.Value);
+
+            if (accountValue == 0) continue;
+
+            var accountCategoryComparisons = new List<AccountCategoryComparisonDto>();
+            var positionRecommendations = new List<PositionRecommendationDto>();
+
+            // Group this account's positions by category
+            var accountPositionsByCategory = accountPositions
+                .Where(p => p.AssetCategoryId.HasValue)
+                .GroupBy(p => p.AssetCategoryId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // For each allocation in the model, calculate this account's target vs actual
+            foreach (var allocation in model.Allocations)
+            {
+                var effectiveTargetPercentage = GetEffectivePercentage(allocation.AssetCategoryId);
+                var targetValue = (effectiveTargetPercentage / 100) * accountValue;
+
+                // Get positions in this account matching this category (including descendants)
+                var categoryIds = GetCategoryAndDescendants(allocation.AssetCategoryId);
+                var matchingPositions = accountPositions
+                    .Where(p => p.AssetCategoryId.HasValue && categoryIds.Contains(p.AssetCategoryId.Value))
+                    .ToList();
+
+                var actualValue = matchingPositions.Sum(p => p.Value);
+                var actualPercentage = (actualValue / accountValue) * 100;
+                var differenceValue = actualValue - targetValue;
+
+                var isLeaf = IsLeafAllocation(allocation.AssetCategoryId);
+
+                accountCategoryComparisons.Add(new AccountCategoryComparisonDto
+                {
+                    CategoryId = allocation.AssetCategoryId,
+                    CategoryName = allocation.AssetCategory?.Name ?? "Unknown",
+                    TargetPercentage = effectiveTargetPercentage,
+                    ActualPercentage = Math.Round(actualPercentage, 2),
+                    TargetValue = Math.Round(targetValue, 2),
+                    ActualValue = Math.Round(actualValue, 2),
+                    DifferenceValue = Math.Round(differenceValue, 2),
+                    Depth = GetDepth(allocation.AssetCategoryId),
+                    IsLeaf = isLeaf
+                });
+            }
+
+            // Sort by depth
+            accountCategoryComparisons = accountCategoryComparisons
+                .OrderBy(c => c.Depth)
+                .ThenBy(c => c.CategoryName)
+                .ToList();
+
+            // Generate position-level recommendations
+            // Strategy: For each leaf category, distribute the difference across positions
+            var leafComparisons = accountCategoryComparisons.Where(c => c.IsLeaf).ToList();
+
+            foreach (var leafComp in leafComparisons)
+            {
+                var categoryIds = GetCategoryAndDescendants(leafComp.CategoryId);
+                var categoryPositions = accountPositions
+                    .Where(p => p.AssetCategoryId.HasValue && categoryIds.Contains(p.AssetCategoryId.Value))
+                    .ToList();
+
+                if (categoryPositions.Count == 0)
+                {
+                    // Need to buy but no existing position - suggest buying in this category
+                    if (leafComp.DifferenceValue < -10) // Only if difference is meaningful
+                    {
+                        positionRecommendations.Add(new PositionRecommendationDto
+                        {
+                            PositionId = 0,
+                            PositionName = $"[New {leafComp.CategoryName} position]",
+                            CategoryId = leafComp.CategoryId,
+                            CategoryName = leafComp.CategoryName,
+                            CurrentValue = 0,
+                            SuggestedChange = Math.Round(Math.Abs(leafComp.DifferenceValue), 2),
+                            Recommendation = $"Buy ${Math.Abs(leafComp.DifferenceValue):N0} in {leafComp.CategoryName}"
+                        });
+                    }
+                }
+                else if (Math.Abs(leafComp.DifferenceValue) > 10) // Only if difference is meaningful
+                {
+                    // Distribute the change proportionally across existing positions
+                    var totalCategoryValue = categoryPositions.Sum(p => p.Value);
+
+                    foreach (var position in categoryPositions)
+                    {
+                        decimal suggestedChange;
+                        if (totalCategoryValue > 0)
+                        {
+                            // Proportional distribution based on current value
+                            var proportion = position.Value / totalCategoryValue;
+                            suggestedChange = leafComp.DifferenceValue * proportion * -1; // Negative diff means buy
+                        }
+                        else
+                        {
+                            suggestedChange = leafComp.DifferenceValue * -1 / categoryPositions.Count;
+                        }
+
+                        string recommendation;
+                        if (suggestedChange > 10)
+                            recommendation = $"Buy ${Math.Abs(suggestedChange):N0}";
+                        else if (suggestedChange < -10)
+                            recommendation = $"Sell ${Math.Abs(suggestedChange):N0}";
+                        else
+                            recommendation = "Hold";
+
+                        positionRecommendations.Add(new PositionRecommendationDto
+                        {
+                            PositionId = position.Id,
+                            PositionName = position.Name,
+                            CategoryId = position.AssetCategoryId,
+                            CategoryName = position.AssetCategory?.Name,
+                            CurrentValue = position.Value,
+                            SuggestedChange = Math.Round(suggestedChange, 2),
+                            Recommendation = recommendation
+                        });
+                    }
+                }
+                else
+                {
+                    // On target - still list positions as "Hold"
+                    foreach (var position in categoryPositions)
+                    {
+                        positionRecommendations.Add(new PositionRecommendationDto
+                        {
+                            PositionId = position.Id,
+                            PositionName = position.Name,
+                            CategoryId = position.AssetCategoryId,
+                            CategoryName = position.AssetCategory?.Name,
+                            CurrentValue = position.Value,
+                            SuggestedChange = 0,
+                            Recommendation = "Hold"
+                        });
+                    }
+                }
+            }
+
+            // Add unmapped positions in this account
+            var unmappedInAccount = accountPositions
+                .Where(p => !p.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(p.AssetCategoryId.Value))
+                .ToList();
+
+            foreach (var position in unmappedInAccount)
+            {
+                positionRecommendations.Add(new PositionRecommendationDto
+                {
+                    PositionId = position.Id,
+                    PositionName = position.Name,
+                    CategoryId = position.AssetCategoryId,
+                    CategoryName = position.AssetCategory?.Name ?? "[Unmapped]",
+                    CurrentValue = position.Value,
+                    SuggestedChange = 0,
+                    Recommendation = "Assign category"
+                });
+            }
+
+            accountBreakdowns.Add(new AccountBreakdownDto
+            {
+                AccountId = accountGroup.Key,
+                AccountName = account?.Name ?? $"Account {accountGroup.Key}",
+                AccountValue = accountValue,
+                PercentOfTotal = Math.Round((accountValue / totalValue) * 100, 2),
+                CategoryComparisons = accountCategoryComparisons,
+                PositionRecommendations = positionRecommendations.OrderBy(p => p.CategoryName).ThenBy(p => p.PositionName).ToList()
+            });
+        }
+
         return Ok(new CompareResultDto
         {
             ModelName = model.Name,
             TotalValue = totalValue,
             Comparisons = comparisons,
-            UnmappedPositions = unmappedPositions
+            UnmappedPositions = unmappedPositions,
+            AccountBreakdowns = accountBreakdowns.OrderBy(a => a.AccountName).ToList()
         });
     }
 }
@@ -346,6 +522,41 @@ public class CompareResultDto
     public decimal TotalValue { get; set; }
     public List<CategoryComparisonDto> Comparisons { get; set; } = new();
     public List<UnmappedPositionDto> UnmappedPositions { get; set; } = new();
+    public List<AccountBreakdownDto> AccountBreakdowns { get; set; } = new();
+}
+
+public class AccountBreakdownDto
+{
+    public int AccountId { get; set; }
+    public string AccountName { get; set; } = string.Empty;
+    public decimal AccountValue { get; set; }
+    public decimal PercentOfTotal { get; set; }
+    public List<AccountCategoryComparisonDto> CategoryComparisons { get; set; } = new();
+    public List<PositionRecommendationDto> PositionRecommendations { get; set; } = new();
+}
+
+public class AccountCategoryComparisonDto
+{
+    public int CategoryId { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
+    public decimal TargetPercentage { get; set; }
+    public decimal ActualPercentage { get; set; }
+    public decimal TargetValue { get; set; }
+    public decimal ActualValue { get; set; }
+    public decimal DifferenceValue { get; set; }
+    public int Depth { get; set; }
+    public bool IsLeaf { get; set; }
+}
+
+public class PositionRecommendationDto
+{
+    public int PositionId { get; set; }
+    public string PositionName { get; set; } = string.Empty;
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public decimal CurrentValue { get; set; }
+    public decimal SuggestedChange { get; set; }
+    public string Recommendation { get; set; } = string.Empty;
 }
 
 public class CategoryComparisonDto
