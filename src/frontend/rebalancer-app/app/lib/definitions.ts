@@ -250,4 +250,36 @@ export type CompareResult = {
   totalValue: number;
   comparisons: CategoryComparison[];
   unmappedPositions: UnmappedPosition[];
+  accountBreakdowns: AccountBreakdown[];
+};
+
+export type AccountBreakdown = {
+  accountId: number;
+  accountName: string;
+  accountValue: number;
+  percentOfTotal: number;
+  categoryComparisons: AccountCategoryComparison[];
+  positionRecommendations: PositionRecommendation[];
+};
+
+export type AccountCategoryComparison = {
+  categoryId: number;
+  categoryName: string;
+  targetPercentage: number;
+  actualPercentage: number;
+  targetValue: number;
+  actualValue: number;
+  differenceValue: number;
+  depth: number;
+  isLeaf: boolean;
+};
+
+export type PositionRecommendation = {
+  positionId: number;
+  positionName: string;
+  categoryId?: number | null;
+  categoryName?: string | null;
+  currentValue: number;
+  suggestedChange: number;
+  recommendation: string;
 };

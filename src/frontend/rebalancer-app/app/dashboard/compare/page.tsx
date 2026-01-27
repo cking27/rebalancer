@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Account, Model, CompareResult } from '@/app/lib/definitions';
+import { Account, Model, CompareResult, AccountBreakdown } from '@/app/lib/definitions';
 import { getAccounts, getModels, compareToModel } from '@/app/lib/api';
+import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 export default function ComparePage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -14,6 +15,29 @@ export default function ComparePage() {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [expandedAccounts, setExpandedAccounts] = useState<Set<number>>(new Set());
+
+  const toggleAccountExpanded = (accountId: number) => {
+    setExpandedAccounts((prev) => {
+      const next = new Set(prev);
+      if (next.has(accountId)) {
+        next.delete(accountId);
+      } else {
+        next.add(accountId);
+      }
+      return next;
+    });
+  };
+
+  const expandAllAccounts = () => {
+    if (compareResult) {
+      setExpandedAccounts(new Set(compareResult.accountBreakdowns.map((a) => a.accountId)));
+    }
+  };
+
+  const collapseAllAccounts = () => {
+    setExpandedAccounts(new Set());
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -284,6 +308,188 @@ export default function ComparePage() {
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Per-Account Breakdowns */}
+      {compareResult && compareResult.accountBreakdowns.length > 0 && (
+        <div className="mt-6 bg-white rounded-lg shadow">
+          <div className="p-4 border-b flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold">Per-Account Rebalancing</h2>
+              <p className="text-sm text-gray-600">
+                Position-level recommendations for each account (since you cannot move funds between accounts)
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={expandAllAccounts}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Expand All
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={collapseAllAccounts}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+
+          {compareResult.accountBreakdowns.map((account) => (
+            <div key={account.accountId} className="border-b last:border-b-0">
+              {/* Account Header */}
+              <button
+                onClick={() => toggleAccountExpanded(account.accountId)}
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  {expandedAccounts.has(account.accountId) ? (
+                    <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronRightIcon className="w-5 h-5 text-gray-500" />
+                  )}
+                  <div>
+                    <span className="font-semibold">{account.accountName}</span>
+                    <span className="text-gray-500 ml-2">
+                      ({account.percentOfTotal.toFixed(1)}% of total)
+                    </span>
+                  </div>
+                </div>
+                <span className="text-gray-600">
+                  ${account.accountValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </button>
+
+              {/* Account Details (expanded) */}
+              {expandedAccounts.has(account.accountId) && (
+                <div className="px-4 pb-4">
+                  {/* Category Comparison for this account */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                      Category Allocation in this Account
+                    </h4>
+                    <div className="bg-gray-50 rounded-md overflow-hidden">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-100">
+                            <th className="text-left py-2 px-3">Category</th>
+                            <th className="text-right py-2 px-3">Target</th>
+                            <th className="text-right py-2 px-3">Actual</th>
+                            <th className="text-right py-2 px-3">Difference</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {account.categoryComparisons.map((cat) => (
+                            <tr
+                              key={cat.categoryId}
+                              className={`border-b last:border-b-0 ${!cat.isLeaf ? 'bg-gray-100/50' : ''}`}
+                            >
+                              <td
+                                className="py-2 px-3"
+                                style={{ paddingLeft: `${cat.depth * 16 + 12}px` }}
+                              >
+                                {cat.categoryName}
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                ${cat.targetValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                <span className="text-gray-400 ml-1">({cat.targetPercentage.toFixed(1)}%)</span>
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                ${cat.actualValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                <span className="text-gray-400 ml-1">({cat.actualPercentage.toFixed(1)}%)</span>
+                              </td>
+                              <td
+                                className={`py-2 px-3 text-right font-medium ${
+                                  cat.differenceValue > 10
+                                    ? 'text-green-600'
+                                    : cat.differenceValue < -10
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                                }`}
+                              >
+                                {cat.differenceValue > 0 ? '+' : ''}
+                                ${cat.differenceValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Position Recommendations */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                      Position Recommendations
+                    </h4>
+                    <div className="bg-gray-50 rounded-md overflow-hidden">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-gray-100">
+                            <th className="text-left py-2 px-3">Position</th>
+                            <th className="text-left py-2 px-3">Category</th>
+                            <th className="text-right py-2 px-3">Current Value</th>
+                            <th className="text-right py-2 px-3">Change</th>
+                            <th className="text-left py-2 px-3">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {account.positionRecommendations.map((pos, idx) => (
+                            <tr key={pos.positionId || `new-${idx}`} className="border-b last:border-b-0">
+                              <td className="py-2 px-3 font-medium">
+                                {pos.positionName}
+                              </td>
+                              <td className="py-2 px-3 text-gray-600">
+                                {pos.categoryName || '-'}
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                ${pos.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </td>
+                              <td
+                                className={`py-2 px-3 text-right font-medium ${
+                                  pos.suggestedChange > 0
+                                    ? 'text-green-600'
+                                    : pos.suggestedChange < 0
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                                }`}
+                              >
+                                {pos.suggestedChange !== 0 && (
+                                  <>
+                                    {pos.suggestedChange > 0 ? '+' : ''}
+                                    ${pos.suggestedChange.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                  </>
+                                )}
+                                {pos.suggestedChange === 0 && '-'}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                                    pos.recommendation.startsWith('Buy')
+                                      ? 'bg-green-100 text-green-800'
+                                      : pos.recommendation.startsWith('Sell')
+                                      ? 'bg-red-100 text-red-800'
+                                      : pos.recommendation === 'Assign category'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  {pos.recommendation}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
