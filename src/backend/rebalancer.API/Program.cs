@@ -12,7 +12,8 @@ builder.Services.AddDbContext<RebalancerDbContext>(options =>
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IInstitutionRepository, InstitutionRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ISecurityRepository, SecurityRepository>();
+builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
 builder.Services.AddScoped<IAssetCategoryRepository, AssetCategoryRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 builder.Services.AddControllers();

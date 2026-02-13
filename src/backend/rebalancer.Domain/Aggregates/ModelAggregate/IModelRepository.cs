@@ -8,5 +8,5 @@ public interface IModelRepository
     Task<Model> AddAsync(Model model);
     Task UpdateAsync(Model model);
     Task DeleteAsync(int id);
-    Task<List<Position>> GetPositionsByAccountIdsAsync(List<int> accountIds);
+    Task<List<Holding>> GetHoldingsByAccountIdsAsync(List<int> accountIds);
 }

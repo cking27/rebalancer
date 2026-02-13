@@ -116,19 +116,37 @@ export type Account = {
   isRetirement: boolean;
 };
 
-export type Position = {
+// Security - centrally-defined asset
+export type Security = {
   id: number;
-  accountId: number;
+  ticker: string;
   name: string;
   positionType: PositionType;
   assetClass: AssetClass;
-  value: number;
+  assetCategoryId?: number | null;
+  assetCategoryName?: string | null;
+  price: number;
+};
+
+// Holding - per-account record of shares and price
+export type Holding = {
+  id: number;
+  accountId: number;
+  securityId: number;
+  shares: number;
+  price: number;
+  value: number;  // computed: shares × price
+  // Security properties for convenience
+  ticker: string;
+  securityName: string;
+  positionType: PositionType;
+  assetClass: AssetClass;
   assetCategoryId?: number | null;
   assetCategoryName?: string | null;
 };
 
-export type AccountWithPositions = Account & {
-  positions: Position[];
+export type AccountWithHoldings = Account & {
+  holdings: Holding[];
 };
 
 export type AllocationItem = {
@@ -160,20 +178,26 @@ export type CreateAccountRequest = {
   isRetirement: boolean;
 };
 
-export type CreatePositionRequest = {
-  accountId: number;
+export type CreateSecurityRequest = {
+  ticker: string;
   name: string;
   positionType: PositionType;
   assetClass: AssetClass;
-  value: number;
+  assetCategoryId?: number | null;
+  price: number;
 };
 
-export type UpdatePositionRequest = {
-  name: string;
-  positionType: PositionType;
-  assetClass: AssetClass;
-  value: number;
-  assetCategoryId?: number | null;
+export type UpdateSecurityRequest = CreateSecurityRequest;
+
+export type CreateHoldingRequest = {
+  accountId: number;
+  securityId: number;
+  shares: number;
+};
+
+export type UpdateHoldingRequest = {
+  securityId: number;
+  shares: number;
 };
 
 // Asset Category Types
@@ -239,9 +263,10 @@ export type CategoryComparison = {
   isLeaf: boolean;
 };
 
-export type UnmappedPosition = {
-  positionId: number;
-  positionName: string;
+export type UnmappedHolding = {
+  holdingId: number;
+  ticker: string;
+  securityName: string;
   value: number;
 };
 
@@ -249,7 +274,7 @@ export type CompareResult = {
   modelName: string;
   totalValue: number;
   comparisons: CategoryComparison[];
-  unmappedPositions: UnmappedPosition[];
+  unmappedHoldings: UnmappedHolding[];
   accountBreakdowns: AccountBreakdown[];
 };
 
@@ -259,7 +284,7 @@ export type AccountBreakdown = {
   accountValue: number;
   percentOfTotal: number;
   categoryComparisons: AccountCategoryComparison[];
-  positionRecommendations: PositionRecommendation[];
+  holdingRecommendations: HoldingRecommendation[];
 };
 
 export type AccountCategoryComparison = {
@@ -274,9 +299,10 @@ export type AccountCategoryComparison = {
   isLeaf: boolean;
 };
 
-export type PositionRecommendation = {
-  positionId: number;
-  positionName: string;
+export type HoldingRecommendation = {
+  holdingId: number;
+  ticker: string;
+  securityName: string;
   categoryId?: number | null;
   categoryName?: string | null;
   currentValue: number;

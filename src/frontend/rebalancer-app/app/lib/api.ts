@@ -2,14 +2,17 @@ import {
   Person,
   Institution,
   Account,
-  AccountWithPositions,
-  Position,
+  AccountWithHoldings,
+  Security,
+  Holding,
   AllocationSummary,
   CreatePersonRequest,
   CreateInstitutionRequest,
   CreateAccountRequest,
-  CreatePositionRequest,
-  UpdatePositionRequest,
+  CreateSecurityRequest,
+  UpdateSecurityRequest,
+  CreateHoldingRequest,
+  UpdateHoldingRequest,
   AssetCategory,
   AssetCategoryTree,
   CreateAssetCategoryRequest,
@@ -108,8 +111,8 @@ export async function getAccount(id: number): Promise<Account> {
   return fetchApi<Account>(`/Account/${id}`);
 }
 
-export async function getAccountWithPositions(id: number): Promise<AccountWithPositions> {
-  return fetchApi<AccountWithPositions>(`/Account/${id}/positions`);
+export async function getAccountWithHoldings(id: number): Promise<AccountWithHoldings> {
+  return fetchApi<AccountWithHoldings>(`/Account/${id}/holdings`);
 }
 
 export async function createAccount(data: CreateAccountRequest): Promise<Account> {
@@ -132,35 +135,68 @@ export async function deleteAccount(id: number): Promise<void> {
   });
 }
 
-// Positions API
-export async function getPositions(): Promise<Position[]> {
-  return fetchApi<Position[]>('/Position');
+// Securities API
+export async function getSecurities(): Promise<Security[]> {
+  return fetchApi<Security[]>('/Security');
 }
 
-export async function getPosition(id: number): Promise<Position> {
-  return fetchApi<Position>(`/Position/${id}`);
+export async function getSecurity(id: number): Promise<Security> {
+  return fetchApi<Security>(`/Security/${id}`);
 }
 
-export async function getPositionsByAccount(accountId: number): Promise<Position[]> {
-  return fetchApi<Position[]>(`/Position/account/${accountId}`);
+export async function getSecurityByTicker(ticker: string): Promise<Security> {
+  return fetchApi<Security>(`/Security/ticker/${ticker}`);
 }
 
-export async function createPosition(data: CreatePositionRequest): Promise<Position> {
-  return fetchApi<Position>('/Position', {
+export async function createSecurity(data: CreateSecurityRequest): Promise<Security> {
+  return fetchApi<Security>('/Security', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function updatePosition(id: number, data: UpdatePositionRequest): Promise<void> {
-  return fetchApi<void>(`/Position/${id}`, {
+export async function updateSecurity(id: number, data: UpdateSecurityRequest): Promise<void> {
+  return fetchApi<void>(`/Security/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
-export async function deletePosition(id: number): Promise<void> {
-  return fetchApi<void>(`/Position/${id}`, {
+export async function deleteSecurity(id: number): Promise<void> {
+  return fetchApi<void>(`/Security/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// Holdings API
+export async function getHoldings(): Promise<Holding[]> {
+  return fetchApi<Holding[]>('/Holding');
+}
+
+export async function getHolding(id: number): Promise<Holding> {
+  return fetchApi<Holding>(`/Holding/${id}`);
+}
+
+export async function getHoldingsByAccount(accountId: number): Promise<Holding[]> {
+  return fetchApi<Holding[]>(`/Holding/account/${accountId}`);
+}
+
+export async function createHolding(data: CreateHoldingRequest): Promise<Holding> {
+  return fetchApi<Holding>('/Holding', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateHolding(id: number, data: UpdateHoldingRequest): Promise<void> {
+  return fetchApi<void>(`/Holding/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteHolding(id: number): Promise<void> {
+  return fetchApi<void>(`/Holding/${id}`, {
     method: 'DELETE',
   });
 }

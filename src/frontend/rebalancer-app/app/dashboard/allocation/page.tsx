@@ -126,7 +126,7 @@ export default function AllocationPage() {
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="font-semibold mb-4">By Asset Class</h2>
                 {allocation.byAssetClass.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No positions in selected accounts</p>
+                  <p className="text-gray-500 text-sm">No holdings in selected accounts</p>
                 ) : (
                   <div className="space-y-3">
                     {allocation.byAssetClass.map((item) => (
@@ -153,7 +153,7 @@ export default function AllocationPage() {
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="font-semibold mb-4">By Position Type</h2>
                 {allocation.byPositionType.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No positions in selected accounts</p>
+                  <p className="text-gray-500 text-sm">No holdings in selected accounts</p>
                 ) : (
                   <div className="space-y-3">
                     {allocation.byPositionType.map((item) => (
@@ -176,17 +176,17 @@ export default function AllocationPage() {
                 )}
               </div>
 
-              {/* By Position */}
+              {/* By Security */}
               <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="font-semibold mb-4">By Individual Position</h2>
+                <h2 className="font-semibold mb-4">By Security</h2>
                 {allocation.byPosition.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No positions in selected accounts</p>
+                  <p className="text-gray-500 text-sm">No holdings in selected accounts</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 px-2 text-sm">Position</th>
+                          <th className="text-left py-2 px-2 text-sm">Ticker</th>
                           <th className="text-right py-2 px-2 text-sm">Value</th>
                           <th className="text-right py-2 px-2 text-sm">%</th>
                         </tr>
