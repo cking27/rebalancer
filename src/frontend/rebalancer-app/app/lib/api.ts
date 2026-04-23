@@ -20,6 +20,7 @@ import {
   CreateModelRequest,
   UpdateModelRequest,
   CompareResult,
+  RefreshPricesResponse,
 } from './definitions';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
@@ -165,6 +166,12 @@ export async function updateSecurity(id: number, data: UpdateSecurityRequest): P
 export async function deleteSecurity(id: number): Promise<void> {
   return fetchApi<void>(`/Security/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function refreshSecurityPrices(): Promise<RefreshPricesResponse> {
+  return fetchApi<RefreshPricesResponse>('/Security/refresh-prices', {
+    method: 'POST',
   });
 }
 

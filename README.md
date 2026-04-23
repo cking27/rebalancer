@@ -43,10 +43,17 @@ That's it! Docker handles all other dependencies (.NET SDK, Node.js, PostgreSQL)
 
 3. **Access the application**
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5001/api
+   - Backend API: http://localhost:5001/api/Account (example endpoint)
    - Swagger UI: http://localhost:5001/swagger
 
 The first startup may take a few minutes as Docker downloads images and installs dependencies.
+
+4. **Restore sample data** (optional)
+
+   If you have a `backup.sql` dump, restore it after the services are up:
+   ```bash
+   docker-compose exec -T db psql -U postgres -d rebalancer < backup.sql
+   ```
 
 ## Services
 
@@ -142,6 +149,9 @@ rebalancer/
 | `POST /api/Model/{id}/compare` | Compare portfolio to model |
 
 ## Troubleshooting
+
+### Backend API returns nothing at /api
+`/api` alone has no registered route — use a specific endpoint like `http://localhost:5001/api/Account` or open Swagger at `http://localhost:5001/swagger`.
 
 ### "Failed to load" errors in frontend
 This is usually a CORS issue. Ensure the backend is running and check that your frontend port (3000 or 3001) is allowed in `Program.cs`.

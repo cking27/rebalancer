@@ -189,6 +189,20 @@ export type CreateSecurityRequest = {
 
 export type UpdateSecurityRequest = CreateSecurityRequest;
 
+export type PriceUpdateResult = {
+  ticker: string;
+  success: boolean;
+  oldPrice: number;
+  newPrice: number;
+  error?: string;
+};
+
+export type RefreshPricesResponse = {
+  updatedCount: number;
+  failedCount: number;
+  results: PriceUpdateResult[];
+};
+
 export type CreateHoldingRequest = {
   accountId: number;
   securityId: number;

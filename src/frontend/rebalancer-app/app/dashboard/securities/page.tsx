@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Security, PositionType, AssetClass, AssetCategory } from '@/app/lib/definitions';
-import { getSecurities, createSecurity, updateSecurity, deleteSecurity, getAssetCategories } from '@/app/lib/api';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { getSecurities, createSecurity, updateSecurity, deleteSecurity, getAssetCategories, refreshSecurityPrices } from '@/app/lib/api';
+import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const positionTypes: PositionType[] = ['MutualFund', 'ETF', 'Stock', 'Bond', 'Cash', 'Other'];
 const assetClasses: AssetClass[] = ['Equity', 'FixedIncome', 'Cash', 'Other'];
@@ -28,7 +28,9 @@ export default function SecuritiesPage() {
   const [securities, setSecurities] = useState<Security[]>([]);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newSecurity, setNewSecurity] = useState({
@@ -142,6 +144,32 @@ export default function SecuritiesPage() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
+  const handleRefreshPrices = async () => {
+    if (securities.length === 0) {
+      setError('No securities to refresh');
+      return;
+    }
+    try {
+      setRefreshing(true);
+      setError(null);
+      setSuccessMessage(null);
+      const result = await refreshSecurityPrices();
+      await fetchSecurities();
+      if (result.failedCount > 0) {
+        const failures = result.results.filter(r => !r.success).map(r => r.ticker).join(', ');
+        setError(`Failed to update prices for: ${failures}`);
+      }
+      if (result.updatedCount > 0) {
+        setSuccessMessage(`Updated prices for ${result.updatedCount} securities`);
+      }
+    } catch (err) {
+      setError('Failed to refresh prices');
+      console.error(err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
@@ -153,14 +181,31 @@ export default function SecuritiesPage() {
             Manage your securities catalog. Securities are shared across all accounts.
           </p>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add Security
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRefreshPrices}
+            disabled={refreshing || securities.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowPathIcon className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh Prices'}
+          </button>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add Security
+          </button>
+        </div>
       </div>
+
+      {successMessage && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {successMessage}
+          <button onClick={() => setSuccessMessage(null)} className="ml-4 text-green-800 underline">Dismiss</button>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

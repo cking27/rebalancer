@@ -50,3 +50,4 @@ src/backend/rebalancer.API/obj/rebalancer.API.csproj.nuget.dgspec.json
 src/backend/rebalancer.API/obj/rebalancer.API.csproj.nuget.g.props
 src/backend/rebalancer.API/obj/project.assets.json
 src/backend/rebalancer.API/obj/project.assets.json
+src/backup.sql
