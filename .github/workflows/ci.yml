@@ -22,7 +22,7 @@ jobs:
           dotnet-version: "6.0.x"
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore rebalancer.sln
 
       - name: Build
         run: dotnet build --no-restore --configuration Release
