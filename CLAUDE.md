@@ -20,7 +20,7 @@ docker-compose logs -f backend  # View backend logs
 ### Backend Only (requires .NET 6 SDK)
 ```bash
 cd src/backend
-dotnet restore
+dotnet restore rebalancer.sln
 dotnet run --project rebalancer.API
 dotnet watch --project rebalancer.API/rebalancer.API.csproj run  # Hot reload
 dotnet test                # Run all tests
@@ -31,7 +31,7 @@ dotnet test --filter "FullyQualifiedName~TestMethodName"  # Single test
 ```bash
 cd src/frontend/rebalancer-app
 npm install
-npm run dev                # Development server
+npm run dev                # Development server (http://localhost:3000)
 npm run build              # Production build
 npm run prettier:check     # Check formatting
 npm run prettier           # Fix formatting
@@ -41,45 +41,66 @@ npm run prettier           # Fix formatting
 
 ### Backend (.NET 6)
 
-Clean architecture with three layers:
+Three-layer clean architecture:
 
-- **rebalancer.API** - REST controllers, DTOs, dependency injection setup
-- **rebalancer.Domain** - Domain entities and repository interfaces (no external dependencies)
-- **rebalancer.Infrastructure** - EF Core DbContext, repository implementations, database mappings
-
-Domain entities use DDD patterns: private setters, explicit constructors, and Update methods for modifications.
+- **rebalancer.API** - REST controllers, with DTOs colocated in the same file as each controller (not a separate folder)
+- **rebalancer.Domain** - Domain entities and repository interfaces (no external dependencies); entities use private setters, explicit constructors, and `Update()` methods for mutation
+- **rebalancer.Infrastructure** - EF Core `RebalancerDbContext`, one repository class per aggregate
 
 ### Domain Model
 
-The core entities and their relationships:
 - **Person** - Account owners
-- **Institution** - Financial institutions (Fidelity, Vanguard, etc.)
-- **Account** - Belongs to a Person at an Institution, has AccountType (Brokerage, K401, IRA, etc.)
-- **Security** - Centrally-defined assets with ticker, PositionType (ETF, Stock, etc.), AssetClass, and optional AssetCategory
-- **Holding** - Links Account to Security with shares and price (value is computed as shares × price)
-- **AssetCategory** - Hierarchical categories (e.g., Equity → US Large Cap → US Large Cap Growth)
-- **Model** - Target allocation model with ModelAllocation entries mapping AssetCategories to target percentages
+- **Institution** - Financial institutions
+- **Account** - Belongs to a Person at an Institution; has `AccountType` enum (Brokerage, K401, IRA, etc.) and `IsRetirement` flag
+- **Security** - Centrally-defined assets with ticker (unique), `PositionType` (ETF, Stock, etc.), `AssetClass`, optional `AssetCategoryId`, and `Price`
+- **Holding** - Links Account to Security with `Shares`; `Value` is a computed property (`Shares × Security.Price`) that is ignored by EF Core and requires `Security` to be loaded
+- **AssetCategory** - Self-referencing hierarchy via `ParentId`; used to classify securities and define model targets
+- **Model** / **ModelAllocation** - Target allocation model; each `ModelAllocation` maps an `AssetCategoryId` to a `TargetPercentage`
+
+### Compare Algorithm (core business logic)
+
+`POST /api/Model/{id}/compare` is the primary feature. Key behaviors:
+
+- **Effective percentage** for a category is computed by multiplying its `TargetPercentage` down the parent chain (e.g., a child at 60% under a parent at 40% → 24% effective target)
+- **Leaf allocations** are categories in the model that have no child categories also in the model; only leaves generate Buy/Sell recommendations; non-leaves show Over/Under
+- **$10 threshold** — buy/sell recommendations are only generated when `|differenceValue| > 10`
+- **Per-account breakdowns** are returned alongside the aggregate comparison; holding-level recommendations are distributed proportionally within each category
+- **Unmapped holdings** — securities with no `AssetCategoryId`, or whose category is not covered by the model, are surfaced separately
+
+### Model Allocation Update Pattern
+
+`ModelRepository.UpdateAsync` deletes all existing `ModelAllocation` rows for the model and re-inserts from the entity's current `Allocations` collection. Do not attempt a partial/diff update.
+
+### Price Refresh
+
+`POST /api/Security/refresh-prices` fetches live prices from Yahoo Finance (`query1.finance.yahoo.com/v8/finance/chart/{ticker}`) for all securities and persists them. The `HttpClient` is registered as `"YahooFinance"` in DI.
 
 ### Frontend (Next.js 14)
 
-- App Router structure under `app/`
-- Dashboard pages at `app/dashboard/[feature]/page.tsx`
-- API client functions in `app/lib/api.ts`
+- App Router under `app/`; dashboard features at `app/dashboard/[feature]/page.tsx`
+- All API calls go through `app/lib/api.ts` via a shared `fetchApi<T>` wrapper
 - TypeScript types in `app/lib/definitions.ts`
+- Backend URL configured via `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:5001/api`)
 - TailwindCSS for styling
 
-### Key API Endpoints
+## Services & Ports
 
-- `POST /api/Model/{id}/compare` - Compare portfolio against a model, returns rebalancing recommendations per account
-- `GET /api/Allocation?accountIds=1&accountIds=2` - Aggregate allocation summary across selected accounts
-- `GET /api/Account/{id}/holdings` - Account with all holdings (includes Security details)
+| Service  | Port | Description               |
+|----------|------|---------------------------|
+| frontend | 3000 | Next.js dev server        |
+| backend  | 5001 | .NET Web API (port 80 in container, mapped to 5001) |
+| db       | 5432 | PostgreSQL                |
+
+Swagger UI available at `http://localhost:5001/swagger`.
 
 ## Database
 
-PostgreSQL with EF Core. Schema auto-creates on startup via `db.Database.EnsureCreated()`.
+PostgreSQL with EF Core. Schema auto-creates on startup via `db.Database.EnsureCreated()` — no migrations. Table names are snake_case; column mappings are defined in `RebalancerDbContext.OnModelCreating()`. To restore from a dump:
 
-Table naming: snake_case (e.g., `asset_categories`, `model_allocations`). Column mapping defined in `RebalancerDbContext.OnModelCreating()`.
+```bash
+docker-compose exec -T db psql -U postgres -d rebalancer < backup.sql
+```
 
 ## Testing
 
-Backend uses xUnit. Test project at `src/backend/UnitTests/`.
+xUnit test project at `src/backend/UnitTests/`. Run with `dotnet test` from `src/backend/`.
