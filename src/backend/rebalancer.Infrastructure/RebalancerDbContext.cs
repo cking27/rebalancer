@@ -17,6 +17,7 @@ public class RebalancerDbContext : DbContext
     public DbSet<AssetCategory> AssetCategories { get; set; } = null!;
     public DbSet<Model> Models { get; set; } = null!;
     public DbSet<ModelAllocation> ModelAllocations { get; set; } = null!;
+    public DbSet<SecurityComposition> SecurityCompositions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +79,26 @@ public class RebalancerDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.AssetCategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.Compositions)
+                .WithOne()
+                .HasForeignKey(e => e.SecurityId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SecurityComposition>(entity =>
+        {
+            entity.ToTable("security_compositions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.SecurityId).HasColumnName("security_id");
+            entity.Property(e => e.ComponentSecurityId).HasColumnName("component_security_id");
+            entity.Property(e => e.Percentage).HasColumnName("percentage").HasPrecision(5, 2);
+
+            entity.HasOne(e => e.ComponentSecurity)
+                .WithMany()
+                .HasForeignKey(e => e.ComponentSecurityId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Holding>(entity =>

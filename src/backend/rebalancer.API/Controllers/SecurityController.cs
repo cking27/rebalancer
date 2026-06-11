@@ -22,21 +22,29 @@ public class SecurityController : ControllerBase
         _logger = logger;
     }
 
+    private static SecurityDto MapToDto(Security s) => new SecurityDto
+    {
+        Id = s.Id,
+        Ticker = s.Ticker,
+        Name = s.Name,
+        PositionType = s.PositionType.ToString(),
+        AssetClass = s.AssetClass.ToString(),
+        AssetCategoryId = s.AssetCategoryId,
+        AssetCategoryName = s.AssetCategory?.Name,
+        Price = s.Price,
+        Compositions = s.Compositions.Select(c => new SecurityCompositionDto
+        {
+            ComponentSecurityId = c.ComponentSecurityId,
+            ComponentTicker = c.ComponentSecurity?.Ticker ?? string.Empty,
+            Percentage = c.Percentage
+        }).ToList()
+    };
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SecurityDto>>> Get()
     {
         var securities = await _securityRepository.GetAsync();
-        return Ok(securities.Select(s => new SecurityDto
-        {
-            Id = s.Id,
-            Ticker = s.Ticker,
-            Name = s.Name,
-            PositionType = s.PositionType.ToString(),
-            AssetClass = s.AssetClass.ToString(),
-            AssetCategoryId = s.AssetCategoryId,
-            AssetCategoryName = s.AssetCategory?.Name,
-            Price = s.Price
-        }));
+        return Ok(securities.Select(MapToDto));
     }
 
     [HttpGet("{id}")]
@@ -46,17 +54,7 @@ public class SecurityController : ControllerBase
         if (security == null)
             return NotFound();
 
-        return Ok(new SecurityDto
-        {
-            Id = security.Id,
-            Ticker = security.Ticker,
-            Name = security.Name,
-            PositionType = security.PositionType.ToString(),
-            AssetClass = security.AssetClass.ToString(),
-            AssetCategoryId = security.AssetCategoryId,
-            AssetCategoryName = security.AssetCategory?.Name,
-            Price = security.Price
-        });
+        return Ok(MapToDto(security));
     }
 
     [HttpGet("ticker/{ticker}")]
@@ -66,17 +64,7 @@ public class SecurityController : ControllerBase
         if (security == null)
             return NotFound();
 
-        return Ok(new SecurityDto
-        {
-            Id = security.Id,
-            Ticker = security.Ticker,
-            Name = security.Name,
-            PositionType = security.PositionType.ToString(),
-            AssetClass = security.AssetClass.ToString(),
-            AssetCategoryId = security.AssetCategoryId,
-            AssetCategoryName = security.AssetCategory?.Name,
-            Price = security.Price
-        });
+        return Ok(MapToDto(security));
     }
 
     [HttpPost]
@@ -98,17 +86,18 @@ public class SecurityController : ControllerBase
         );
 
         var created = await _securityRepository.AddAsync(security);
-        return CreatedAtAction(nameof(Get), new { id = created.Id }, new SecurityDto
+
+        if (request.Compositions?.Count > 0)
         {
-            Id = created.Id,
-            Ticker = created.Ticker,
-            Name = created.Name,
-            PositionType = created.PositionType.ToString(),
-            AssetClass = created.AssetClass.ToString(),
-            AssetCategoryId = created.AssetCategoryId,
-            AssetCategoryName = null,
-            Price = created.Price
-        });
+            var compositions = request.Compositions
+                .Select(c => new SecurityComposition(created.Id, c.ComponentSecurityId, c.Percentage))
+                .ToList();
+            created.SetCompositions(compositions);
+            await _securityRepository.UpdateAsync(created);
+            created = await _securityRepository.GetAsync(created.Id) ?? created;
+        }
+
+        return CreatedAtAction(nameof(Get), new { id = created.Id }, MapToDto(created));
     }
 
     [HttpPut("{id}")]
@@ -125,6 +114,12 @@ public class SecurityController : ControllerBase
             return BadRequest("Invalid asset class");
 
         security.Update(request.Ticker, request.Name, positionType, assetClass, request.AssetCategoryId, request.Price);
+
+        var compositions = (request.Compositions ?? new List<CreateCompositionRequest>())
+            .Select(c => new SecurityComposition(id, c.ComponentSecurityId, c.Percentage))
+            .ToList();
+        security.SetCompositions(compositions);
+
         await _securityRepository.UpdateAsync(security);
         return NoContent();
     }
@@ -150,20 +145,13 @@ public class SecurityController : ControllerBase
                 var price = await FetchPriceFromYahoo(client, security.Ticker);
                 if (price.HasValue)
                 {
-                    security.Update(
-                        security.Ticker,
-                        security.Name,
-                        security.PositionType,
-                        security.AssetClass,
-                        security.AssetCategoryId,
-                        price.Value
-                    );
-                    await _securityRepository.UpdateAsync(security);
+                    var oldPrice = security.Price;
+                    await _securityRepository.UpdatePriceAsync(security.Id, price.Value);
                     results.Add(new PriceUpdateResult
                     {
                         Ticker = security.Ticker,
                         Success = true,
-                        OldPrice = security.Price,
+                        OldPrice = oldPrice,
                         NewPrice = price.Value
                     });
                 }
@@ -238,6 +226,20 @@ public class SecurityDto
     public int? AssetCategoryId { get; set; }
     public string? AssetCategoryName { get; set; }
     public decimal Price { get; set; }
+    public List<SecurityCompositionDto> Compositions { get; set; } = new();
+}
+
+public class SecurityCompositionDto
+{
+    public int ComponentSecurityId { get; set; }
+    public string ComponentTicker { get; set; } = string.Empty;
+    public decimal Percentage { get; set; }
+}
+
+public class CreateCompositionRequest
+{
+    public int ComponentSecurityId { get; set; }
+    public decimal Percentage { get; set; }
 }
 
 public class CreateSecurityRequest
@@ -248,6 +250,7 @@ public class CreateSecurityRequest
     public string AssetClass { get; set; } = string.Empty;
     public int? AssetCategoryId { get; set; }
     public decimal Price { get; set; }
+    public List<CreateCompositionRequest>? Compositions { get; set; }
 }
 
 public class UpdateSecurityRequest
@@ -258,6 +261,7 @@ public class UpdateSecurityRequest
     public string AssetClass { get; set; } = string.Empty;
     public int? AssetCategoryId { get; set; }
     public decimal Price { get; set; }
+    public List<CreateCompositionRequest>? Compositions { get; set; }
 }
 
 public class RefreshPricesResponse

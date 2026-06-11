@@ -116,6 +116,12 @@ export type Account = {
   isRetirement: boolean;
 };
 
+export type SecurityComposition = {
+  componentSecurityId: number;
+  componentTicker: string;
+  percentage: number;
+};
+
 // Security - centrally-defined asset
 export type Security = {
   id: number;
@@ -126,6 +132,7 @@ export type Security = {
   assetCategoryId?: number | null;
   assetCategoryName?: string | null;
   price: number;
+  compositions: SecurityComposition[];
 };
 
 // Holding - per-account record of shares and price
@@ -178,6 +185,11 @@ export type CreateAccountRequest = {
   isRetirement: boolean;
 };
 
+export type CreateCompositionRequest = {
+  componentSecurityId: number;
+  percentage: number;
+};
+
 export type CreateSecurityRequest = {
   ticker: string;
   name: string;
@@ -185,6 +197,7 @@ export type CreateSecurityRequest = {
   assetClass: AssetClass;
   assetCategoryId?: number | null;
   price: number;
+  compositions?: CreateCompositionRequest[];
 };
 
 export type UpdateSecurityRequest = CreateSecurityRequest;

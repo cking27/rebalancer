@@ -180,11 +180,72 @@ public class ModelController : ControllerBase
             return result;
         }
 
-        // Group holdings by category (via security)
-        var holdingsByCategory = holdings
-            .Where(h => h.Security?.AssetCategoryId.HasValue == true)
-            .GroupBy(h => h.Security!.AssetCategoryId!.Value)
-            .ToDictionary(g => g.Key, g => g.Sum(h => h.Value));
+        // Recursively resolve a security's value into category contributions.
+        // Composite securities (those with Compositions) split proportionally across components.
+        // Returns the total value successfully attributed to any category.
+        decimal ResolveSecurityToCategories(Security security, decimal value, Dictionary<int, decimal> result, HashSet<int> visited)
+        {
+            if (visited.Contains(security.Id)) return 0;
+            visited.Add(security.Id);
+
+            if (security.Compositions.Any())
+            {
+                decimal resolved = 0;
+                foreach (var comp in security.Compositions)
+                {
+                    if (comp.ComponentSecurity != null)
+                    {
+                        var portion = value * (comp.Percentage / 100m);
+                        resolved += ResolveSecurityToCategories(comp.ComponentSecurity, portion, result, new HashSet<int>(visited));
+                    }
+                }
+                return resolved;
+            }
+
+            if (security.AssetCategoryId.HasValue)
+            {
+                result.TryGetValue(security.AssetCategoryId.Value, out var existing);
+                result[security.AssetCategoryId.Value] = existing + value;
+                return value;
+            }
+
+            return 0;
+        }
+
+        // Resolve the value from a security that lands in a specific set of category IDs.
+        decimal ResolveSecurityToCategorySet(Security security, decimal value, ISet<int> targetCategories, HashSet<int> visited)
+        {
+            if (visited.Contains(security.Id)) return 0;
+            visited.Add(security.Id);
+
+            if (security.Compositions.Any())
+            {
+                decimal total = 0;
+                foreach (var comp in security.Compositions)
+                {
+                    if (comp.ComponentSecurity != null)
+                    {
+                        var portion = value * (comp.Percentage / 100m);
+                        total += ResolveSecurityToCategorySet(comp.ComponentSecurity, portion, targetCategories, new HashSet<int>(visited));
+                    }
+                }
+                return total;
+            }
+
+            return security.AssetCategoryId.HasValue && targetCategories.Contains(security.AssetCategoryId.Value)
+                ? value
+                : 0;
+        }
+
+        // Group holdings by category, expanding composite securities into proportional contributions
+        var holdingsByCategory = new Dictionary<int, decimal>();
+        var mappedHoldingIds = new HashSet<int>();
+        foreach (var holding in holdings)
+        {
+            if (holding.Security == null) continue;
+            var resolved = ResolveSecurityToCategories(holding.Security, holding.Value, holdingsByCategory, new HashSet<int>());
+            if (resolved > 0) mappedHoldingIds.Add(holding.Id);
+        }
 
         // Track which categories are covered by model allocations
         var coveredCategoryIds = new HashSet<int>();
@@ -209,6 +270,36 @@ public class ModelController : ControllerBase
                 cat = categoryById.GetValueOrDefault(cat.ParentId.Value);
             }
             return depth;
+        }
+
+        // Sort a flat list into depth-first tree order (parent immediately followed by its children)
+        List<T> SortDepthFirst<T>(List<T> items, Func<T, int> getCategoryId, Func<T, string> getName)
+        {
+            var result = new List<T>();
+            var roots = items
+                .Where(c => {
+                    var parentId = categoryById.GetValueOrDefault(getCategoryId(c))?.ParentId;
+                    return parentId == null || !items.Any(p => getCategoryId(p) == parentId);
+                })
+                .OrderBy(getName)
+                .ToList();
+
+            void AddWithChildren(T item)
+            {
+                result.Add(item);
+                var catId = getCategoryId(item);
+                foreach (var child in items
+                    .Where(c => categoryById.GetValueOrDefault(getCategoryId(c))?.ParentId == catId)
+                    .OrderBy(getName))
+                {
+                    AddWithChildren(child);
+                }
+            }
+
+            foreach (var root in roots)
+                AddWithChildren(root);
+
+            return result;
         }
 
         var comparisons = new List<CategoryComparisonDto>();
@@ -267,11 +358,18 @@ public class ModelController : ControllerBase
             });
         }
 
-        comparisons = comparisons.OrderBy(c => c.Depth).ThenBy(c => c.CategoryName).ToList();
+        comparisons = SortDepthFirst(comparisons, c => c.CategoryId, c => c.CategoryName);
 
-        // Unmapped = no category OR category not covered by any model allocation
+        // Unmapped = resolved to no categories, OR all resolved categories are outside the model
         var unmappedHoldings = holdings
-            .Where(h => !h.Security?.AssetCategoryId.HasValue == true || !coveredCategoryIds.Contains(h.Security!.AssetCategoryId!.Value))
+            .Where(h => {
+                if (h.Security == null) return true;
+                if (!mappedHoldingIds.Contains(h.Id)) return true;
+                // Composite: check if any contribution lands in a covered category
+                if (h.Security.Compositions.Any())
+                    return ResolveSecurityToCategorySet(h.Security, h.Value, coveredCategoryIds, new HashSet<int>()) == 0;
+                return !h.Security.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(h.Security.AssetCategoryId.Value);
+            })
             .Select(h => new UnmappedHoldingDto
             {
                 HoldingId = h.Id,
@@ -302,11 +400,9 @@ public class ModelController : ControllerBase
                 var targetValue = (effectiveTargetPercentage / 100) * accountValue;
 
                 var categoryIds = GetCategoryAndDescendants(allocation.AssetCategoryId);
-                var matchingHoldings = accountHoldings
-                    .Where(h => h.Security?.AssetCategoryId.HasValue == true && categoryIds.Contains(h.Security!.AssetCategoryId!.Value))
-                    .ToList();
-
-                var actualValue = matchingHoldings.Sum(h => h.Value);
+                var actualValue = accountHoldings
+                    .Where(h => h.Security != null)
+                    .Sum(h => ResolveSecurityToCategorySet(h.Security!, h.Value, categoryIds, new HashSet<int>()));
                 var actualPercentage = (actualValue / accountValue) * 100;
                 var differenceValue = actualValue - targetValue;
 
@@ -326,10 +422,7 @@ public class ModelController : ControllerBase
                 });
             }
 
-            accountCategoryComparisons = accountCategoryComparisons
-                .OrderBy(c => c.Depth)
-                .ThenBy(c => c.CategoryName)
-                .ToList();
+            accountCategoryComparisons = SortDepthFirst(accountCategoryComparisons, c => c.CategoryId, c => c.CategoryName);
 
             // Generate holding-level recommendations
             var leafComparisons = accountCategoryComparisons.Where(c => c.IsLeaf).ToList();
@@ -337,9 +430,34 @@ public class ModelController : ControllerBase
             foreach (var leafComp in leafComparisons)
             {
                 var categoryIds = GetCategoryAndDescendants(leafComp.CategoryId);
+                // Simple (non-composite) holdings that directly map to this category
                 var categoryHoldings = accountHoldings
-                    .Where(h => h.Security?.AssetCategoryId.HasValue == true && categoryIds.Contains(h.Security!.AssetCategoryId!.Value))
+                    .Where(h => h.Security != null
+                        && !h.Security.Compositions.Any()
+                        && h.Security.AssetCategoryId.HasValue
+                        && categoryIds.Contains(h.Security.AssetCategoryId.Value))
                     .ToList();
+
+                // Composite holdings that contribute to this category (shown as Hold, no share-level recommendation)
+                var compositeHoldings = accountHoldings
+                    .Where(h => h.Security?.Compositions.Any() == true
+                        && ResolveSecurityToCategorySet(h.Security!, h.Value, categoryIds, new HashSet<int>()) > 0)
+                    .ToList();
+                foreach (var holding in compositeHoldings)
+                {
+                    var contribution = ResolveSecurityToCategorySet(holding.Security!, holding.Value, categoryIds, new HashSet<int>());
+                    holdingRecommendations.Add(new HoldingRecommendationDto
+                    {
+                        HoldingId = holding.Id,
+                        Ticker = holding.Security!.Ticker,
+                        SecurityName = holding.Security.Name,
+                        CategoryId = leafComp.CategoryId,
+                        CategoryName = leafComp.CategoryName,
+                        CurrentValue = Math.Round(contribution, 2),
+                        SuggestedChange = 0,
+                        Recommendation = "Hold (composite)"
+                    });
+                }
 
                 if (categoryHoldings.Count == 0)
                 {
@@ -417,7 +535,12 @@ public class ModelController : ControllerBase
 
             // Add unmapped holdings in this account
             var unmappedInAccount = accountHoldings
-                .Where(h => !h.Security?.AssetCategoryId.HasValue == true || !coveredCategoryIds.Contains(h.Security!.AssetCategoryId!.Value))
+                .Where(h => {
+                    if (h.Security == null) return true;
+                    if (h.Security.Compositions.Any())
+                        return ResolveSecurityToCategorySet(h.Security, h.Value, coveredCategoryIds, new HashSet<int>()) == 0;
+                    return !h.Security.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(h.Security.AssetCategoryId.Value);
+                })
                 .ToList();
 
             foreach (var holding in unmappedInAccount)

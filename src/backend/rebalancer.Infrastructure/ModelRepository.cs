@@ -69,6 +69,11 @@ public class ModelRepository : IModelRepository
         return await _context.Holdings
             .Include(h => h.Security)
                 .ThenInclude(s => s!.AssetCategory)
+            .Include(h => h.Security)
+                .ThenInclude(s => s!.Compositions)
+                    .ThenInclude(c => c.ComponentSecurity)
+                        .ThenInclude(cs => cs!.Compositions)
+                            .ThenInclude(c2 => c2.ComponentSecurity)
             .Include(h => h.Account)
             .Where(h => accountIds.Contains(h.AccountId))
             .ToListAsync();

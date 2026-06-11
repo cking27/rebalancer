@@ -12,6 +12,7 @@ public class Security
 
     public AssetCategory? AssetCategory { get; private set; }
     public ICollection<Holding> Holdings { get; private set; } = new List<Holding>();
+    public ICollection<SecurityComposition> Compositions { get; private set; } = new List<SecurityComposition>();
 
     private Security()
     {
@@ -48,5 +49,12 @@ public class Security
         AssetClass = assetClass;
         AssetCategoryId = assetCategoryId;
         Price = price;
+    }
+
+    public void SetCompositions(IEnumerable<SecurityComposition> compositions)
+    {
+        Compositions.Clear();
+        foreach (var comp in compositions)
+            Compositions.Add(comp);
     }
 }

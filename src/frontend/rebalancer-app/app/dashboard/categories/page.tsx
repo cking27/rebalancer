@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { AssetCategory } from '@/app/lib/definitions';
 import {
   getAssetCategories,
@@ -195,9 +195,8 @@ export default function CategoriesPage() {
             ) : (
               <>
                 {topLevel.map((category) => (
-                  <>
+                  <Fragment key={category.id}>
                     <CategoryRow
-                      key={category.id}
                       category={category}
                       categories={categories}
                       editingId={editingId}
@@ -226,7 +225,7 @@ export default function CategoriesPage() {
                         indent={1}
                       />
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </>
             )}

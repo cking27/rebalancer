@@ -16,6 +16,9 @@ public class SecurityRepository : ISecurityRepository
     {
         return await _context.Securities
             .Include(s => s.AssetCategory)
+            .Include(s => s.Compositions)
+                .ThenInclude(c => c.ComponentSecurity)
+            .AsSplitQuery()
             .ToListAsync();
     }
 
@@ -23,6 +26,8 @@ public class SecurityRepository : ISecurityRepository
     {
         return await _context.Securities
             .Include(s => s.AssetCategory)
+            .Include(s => s.Compositions)
+                .ThenInclude(c => c.ComponentSecurity)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
@@ -30,6 +35,8 @@ public class SecurityRepository : ISecurityRepository
     {
         return await _context.Securities
             .Include(s => s.AssetCategory)
+            .Include(s => s.Compositions)
+                .ThenInclude(c => c.ComponentSecurity)
             .FirstOrDefaultAsync(s => s.Ticker == ticker);
     }
 
@@ -42,8 +49,24 @@ public class SecurityRepository : ISecurityRepository
 
     public async Task UpdateAsync(Security security)
     {
+        var existingCompositions = await _context.SecurityCompositions
+            .Where(c => c.SecurityId == security.Id)
+            .ToListAsync();
+        _context.SecurityCompositions.RemoveRange(existingCompositions);
+
         _context.Securities.Update(security);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdatePriceAsync(int id, decimal price)
+    {
+        var security = await _context.Securities.FindAsync(id);
+        if (security != null)
+        {
+            security.Update(security.Ticker, security.Name, security.PositionType,
+                security.AssetClass, security.AssetCategoryId, price);
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task DeleteAsync(int id)

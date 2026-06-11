@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Security, PositionType, AssetClass, AssetCategory } from '@/app/lib/definitions';
+import { useEffect, useState, Fragment } from 'react';
+import { Security, PositionType, AssetClass, AssetCategory, CreateCompositionRequest } from '@/app/lib/definitions';
 import { getSecurities, createSecurity, updateSecurity, deleteSecurity, getAssetCategories, refreshSecurityPrices } from '@/app/lib/api';
-import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 const positionTypes: PositionType[] = ['MutualFund', 'ETF', 'Stock', 'Bond', 'Cash', 'Other'];
 const assetClasses: AssetClass[] = ['Equity', 'FixedIncome', 'Cash', 'Other'];
@@ -24,6 +24,93 @@ const assetClassLabels: Record<AssetClass, string> = {
   Other: 'Other',
 };
 
+type CompositionRow = { componentSecurityId: number; percentage: number };
+
+function CompositionEditor({
+  compositions,
+  onChange,
+  securities,
+  ownSecurityId,
+}: {
+  compositions: CompositionRow[];
+  onChange: (rows: CompositionRow[]) => void;
+  securities: Security[];
+  ownSecurityId?: number;
+}) {
+  const total = compositions.reduce((sum, c) => sum + (c.percentage || 0), 0);
+  const eligible = securities.filter((s) => s.id !== ownSecurityId);
+
+  const addRow = () => {
+    const first = eligible.find((s) => !compositions.some((c) => c.componentSecurityId === s.id));
+    onChange([...compositions, { componentSecurityId: first?.id ?? eligible[0]?.id ?? 0, percentage: 0 }]);
+  };
+
+  const updateRow = (index: number, field: keyof CompositionRow, value: number) => {
+    const next = compositions.map((c, i) => (i === index ? { ...c, [field]: value } : c));
+    onChange(next);
+  };
+
+  const removeRow = (index: number) => {
+    onChange(compositions.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-semibold text-gray-700">Composition (fund-of-funds)</h4>
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={eligible.length === 0}
+          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          <PlusIcon className="w-4 h-4" />
+          Add component
+        </button>
+      </div>
+
+      {compositions.length === 0 ? (
+        <p className="text-xs text-gray-400">No composition defined. Add components if this security is a blend of others.</p>
+      ) : (
+        <div className="space-y-2">
+          {compositions.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <select
+                value={row.componentSecurityId}
+                onChange={(e) => updateRow(i, 'componentSecurityId', Number(e.target.value))}
+                className="flex-1 border rounded-md px-2 py-1 text-sm"
+              >
+                {eligible.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.ticker} — {s.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={row.percentage || ''}
+                onChange={(e) => updateRow(i, 'percentage', Number(e.target.value))}
+                placeholder="%"
+                min="0"
+                max="100"
+                step="0.01"
+                className="w-20 border rounded-md px-2 py-1 text-sm text-right"
+              />
+              <span className="text-sm text-gray-500">%</span>
+              <button type="button" onClick={() => removeRow(i)} className="text-red-400 hover:text-red-600">
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <div className={`text-xs font-medium ${Math.abs(total - 100) > 0.01 ? 'text-amber-600' : 'text-green-600'}`}>
+            Total: {total.toFixed(2)}%{Math.abs(total - 100) > 0.01 ? ' (should sum to 100%)' : ' ✓'}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SecuritiesPage() {
   const [securities, setSecurities] = useState<Security[]>([]);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
@@ -41,6 +128,7 @@ export default function SecuritiesPage() {
     assetCategoryId: null as number | null,
     price: 0,
   });
+  const [newCompositions, setNewCompositions] = useState<CompositionRow[]>([]);
   const [editSecurity, setEditSecurity] = useState({
     ticker: '',
     name: '',
@@ -49,6 +137,7 @@ export default function SecuritiesPage() {
     assetCategoryId: null as number | null,
     price: 0,
   });
+  const [editCompositions, setEditCompositions] = useState<CompositionRow[]>([]);
 
   const fetchSecurities = async () => {
     try {
@@ -78,15 +167,21 @@ export default function SecuritiesPage() {
       return;
     }
     try {
+      const compositions: CreateCompositionRequest[] = newCompositions.map((c) => ({
+        componentSecurityId: c.componentSecurityId,
+        percentage: c.percentage,
+      }));
       await createSecurity({
         ticker: newSecurity.ticker.toUpperCase(),
         name: newSecurity.name,
         positionType: newSecurity.positionType,
         assetClass: newSecurity.assetClass,
-        assetCategoryId: newSecurity.assetCategoryId,
+        assetCategoryId: compositions.length > 0 ? null : newSecurity.assetCategoryId,
         price: newSecurity.price,
+        compositions: compositions.length > 0 ? compositions : undefined,
       });
       setNewSecurity({ ticker: '', name: '', positionType: 'MutualFund', assetClass: 'Equity', assetCategoryId: null, price: 0 });
+      setNewCompositions([]);
       setIsAdding(false);
       await fetchSecurities();
     } catch (err) {
@@ -101,13 +196,18 @@ export default function SecuritiesPage() {
       return;
     }
     try {
+      const compositions: CreateCompositionRequest[] = editCompositions.map((c) => ({
+        componentSecurityId: c.componentSecurityId,
+        percentage: c.percentage,
+      }));
       await updateSecurity(id, {
         ticker: editSecurity.ticker.toUpperCase(),
         name: editSecurity.name,
         positionType: editSecurity.positionType,
         assetClass: editSecurity.assetClass,
-        assetCategoryId: editSecurity.assetCategoryId,
+        assetCategoryId: compositions.length > 0 ? null : editSecurity.assetCategoryId,
         price: editSecurity.price,
+        compositions: compositions.length > 0 ? compositions : [],
       });
       setEditingId(null);
       await fetchSecurities();
@@ -138,6 +238,12 @@ export default function SecuritiesPage() {
       assetCategoryId: security.assetCategoryId ?? null,
       price: security.price,
     });
+    setEditCompositions(
+      (security.compositions ?? []).map((c) => ({
+        componentSecurityId: c.componentSecurityId,
+        percentage: c.percentage,
+      }))
+    );
   };
 
   const formatCurrency = (value: number) => {
@@ -263,11 +369,14 @@ export default function SecuritiesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Asset Category (for model allocation)</label>
+              <label className={`block text-sm font-medium mb-1 ${newCompositions.length > 0 ? 'text-gray-400' : ''}`}>
+                Asset Category {newCompositions.length > 0 ? '(overridden by composition)' : '(for model allocation)'}
+              </label>
               <select
                 value={newSecurity.assetCategoryId ?? ''}
                 onChange={(e) => setNewSecurity({ ...newSecurity, assetCategoryId: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border rounded-md px-3 py-2"
+                disabled={newCompositions.length > 0}
+                className={`w-full border rounded-md px-3 py-2 ${newCompositions.length > 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <option value="">None</option>
                 {categories.map((cat) => (
@@ -288,6 +397,11 @@ export default function SecuritiesPage() {
               />
             </div>
           </div>
+          <CompositionEditor
+            compositions={newCompositions}
+            onChange={setNewCompositions}
+            securities={securities}
+          />
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleAddSecurity}
@@ -296,7 +410,7 @@ export default function SecuritiesPage() {
               Save
             </button>
             <button
-              onClick={() => { setIsAdding(false); setNewSecurity({ ticker: '', name: '', positionType: 'MutualFund', assetClass: 'Equity', assetCategoryId: null, price: 0 }); }}
+              onClick={() => { setIsAdding(false); setNewSecurity({ ticker: '', name: '', positionType: 'MutualFund', assetClass: 'Equity', assetCategoryId: null, price: 0 }); setNewCompositions([]); }}
               className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400"
             >
               Cancel
@@ -313,7 +427,7 @@ export default function SecuritiesPage() {
               <th className="text-left py-3 px-4">Name</th>
               <th className="text-left py-3 px-4">Type</th>
               <th className="text-left py-3 px-4">Asset Class</th>
-              <th className="text-left py-3 px-4">Category</th>
+              <th className="text-left py-3 px-4">Category / Composition</th>
               <th className="text-right py-3 px-4">Price</th>
               <th className="text-right py-3 px-4">Actions</th>
             </tr>
@@ -327,117 +441,138 @@ export default function SecuritiesPage() {
               </tr>
             ) : (
               securities.map((security) => (
-                <tr key={security.id} className="border-b hover:bg-gray-50">
-                  {editingId === security.id ? (
-                    <>
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          value={editSecurity.ticker}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, ticker: e.target.value })}
-                          className="border rounded-md px-2 py-1 w-full uppercase"
+                <Fragment key={security.id}>
+                  <tr className="border-b hover:bg-gray-50">
+                    {editingId === security.id ? (
+                      <>
+                        <td className="py-3 px-4">
+                          <input
+                            type="text"
+                            value={editSecurity.ticker}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, ticker: e.target.value })}
+                            className="border rounded-md px-2 py-1 w-full uppercase"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <input
+                            type="text"
+                            value={editSecurity.name}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, name: e.target.value })}
+                            className="border rounded-md px-2 py-1 w-full"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={editSecurity.positionType}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, positionType: e.target.value as PositionType })}
+                            className="border rounded-md px-2 py-1 w-full"
+                          >
+                            {positionTypes.map((type) => (
+                              <option key={type} value={type}>{positionTypeLabels[type]}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={editSecurity.assetClass}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, assetClass: e.target.value as AssetClass })}
+                            className="border rounded-md px-2 py-1 w-full"
+                          >
+                            {assetClasses.map((type) => (
+                              <option key={type} value={type}>{assetClassLabels[type]}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={editSecurity.assetCategoryId ?? ''}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, assetCategoryId: e.target.value ? Number(e.target.value) : null })}
+                            disabled={editCompositions.length > 0}
+                            className={`border rounded-md px-2 py-1 w-full ${editCompositions.length > 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          >
+                            <option value="">None</option>
+                            {categories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <input
+                            type="number"
+                            value={editSecurity.price || ''}
+                            onChange={(e) => setEditSecurity({ ...editSecurity, price: Number(e.target.value) })}
+                            className="border rounded-md px-2 py-1 w-24 text-right"
+                            min="0"
+                            step="0.01"
+                          />
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleUpdateSecurity(security.id)}
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-gray-600 hover:text-gray-800"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-3 px-4 font-medium">{security.ticker}</td>
+                        <td className="py-3 px-4">{security.name}</td>
+                        <td className="py-3 px-4">{positionTypeLabels[security.positionType]}</td>
+                        <td className="py-3 px-4">{assetClassLabels[security.assetClass]}</td>
+                        <td className="py-3 px-4">
+                          {security.compositions?.length > 0 ? (
+                            <span className="text-xs text-indigo-600 font-medium">
+                              Composite ({security.compositions.length} components)
+                            </span>
+                          ) : security.assetCategoryName ? (
+                            security.assetCategoryName
+                          ) : (
+                            <span className="text-gray-400">Not assigned</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">{formatCurrency(security.price)}</td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => startEdit(security)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSecurity(security.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                  {editingId === security.id && (
+                    <tr className="border-b bg-gray-50">
+                      <td colSpan={7} className="px-4 pb-4">
+                        <CompositionEditor
+                          compositions={editCompositions}
+                          onChange={setEditCompositions}
+                          securities={securities}
+                          ownSecurityId={security.id}
                         />
                       </td>
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          value={editSecurity.name}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, name: e.target.value })}
-                          className="border rounded-md px-2 py-1 w-full"
-                        />
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={editSecurity.positionType}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, positionType: e.target.value as PositionType })}
-                          className="border rounded-md px-2 py-1 w-full"
-                        >
-                          {positionTypes.map((type) => (
-                            <option key={type} value={type}>{positionTypeLabels[type]}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={editSecurity.assetClass}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, assetClass: e.target.value as AssetClass })}
-                          className="border rounded-md px-2 py-1 w-full"
-                        >
-                          {assetClasses.map((type) => (
-                            <option key={type} value={type}>{assetClassLabels[type]}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={editSecurity.assetCategoryId ?? ''}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, assetCategoryId: e.target.value ? Number(e.target.value) : null })}
-                          className="border rounded-md px-2 py-1 w-full"
-                        >
-                          <option value="">None</option>
-                          {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <input
-                          type="number"
-                          value={editSecurity.price || ''}
-                          onChange={(e) => setEditSecurity({ ...editSecurity, price: Number(e.target.value) })}
-                          className="border rounded-md px-2 py-1 w-24 text-right"
-                          min="0"
-                          step="0.01"
-                        />
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleUpdateSecurity(security.id)}
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-gray-600 hover:text-gray-800"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="py-3 px-4 font-medium">{security.ticker}</td>
-                      <td className="py-3 px-4">{security.name}</td>
-                      <td className="py-3 px-4">{positionTypeLabels[security.positionType]}</td>
-                      <td className="py-3 px-4">{assetClassLabels[security.assetClass]}</td>
-                      <td className="py-3 px-4">
-                        {security.assetCategoryName || (
-                          <span className="text-gray-400">Not assigned</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">{formatCurrency(security.price)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => startEdit(security)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <PencilIcon className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSecurity(security.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <TrashIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </>
+                    </tr>
                   )}
-                </tr>
+                </Fragment>
               ))
             )}
           </tbody>
