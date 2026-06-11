@@ -53,14 +53,14 @@ public class AccountController : ControllerBase
         });
     }
 
-    [HttpGet("{id}/positions")]
-    public async Task<ActionResult<AccountWithPositionsDto>> GetWithPositions(int id)
+    [HttpGet("{id}/holdings")]
+    public async Task<ActionResult<AccountWithHoldingsDto>> GetWithHoldings(int id)
     {
-        var account = await _accountRepository.GetWithPositionsAsync(id);
+        var account = await _accountRepository.GetWithHoldingsAsync(id);
         if (account == null)
             return NotFound();
 
-        return Ok(new AccountWithPositionsDto
+        return Ok(new AccountWithHoldingsDto
         {
             Id = account.Id,
             Name = account.Name,
@@ -70,16 +70,20 @@ public class AccountController : ControllerBase
             OwnerName = account.Owner?.Name,
             AccountType = account.AccountType.ToString(),
             IsRetirement = account.IsRetirement,
-            Positions = account.Positions.Select(p => new PositionDto
+            Holdings = account.Holdings.Select(h => new HoldingDto
             {
-                Id = p.Id,
-                AccountId = p.AccountId,
-                Name = p.Name,
-                PositionType = p.PositionType.ToString(),
-                AssetClass = p.AssetClass.ToString(),
-                Value = p.Value,
-                AssetCategoryId = p.AssetCategoryId,
-                AssetCategoryName = p.AssetCategory?.Name
+                Id = h.Id,
+                AccountId = h.AccountId,
+                SecurityId = h.SecurityId,
+                Shares = h.Shares,
+                Price = h.Security?.Price ?? 0,
+                Value = h.Value,
+                Ticker = h.Security?.Ticker ?? string.Empty,
+                SecurityName = h.Security?.Name ?? string.Empty,
+                PositionType = h.Security?.PositionType.ToString() ?? string.Empty,
+                AssetClass = h.Security?.AssetClass.ToString() ?? string.Empty,
+                AssetCategoryId = h.Security?.AssetCategoryId,
+                AssetCategoryName = h.Security?.AssetCategory?.Name
             }).ToList()
         });
     }
@@ -145,9 +149,9 @@ public class AccountDto
     public bool IsRetirement { get; set; }
 }
 
-public class AccountWithPositionsDto : AccountDto
+public class AccountWithHoldingsDto : AccountDto
 {
-    public List<PositionDto> Positions { get; set; } = new();
+    public List<HoldingDto> Holdings { get; set; } = new();
 }
 
 public class CreateAccountRequest

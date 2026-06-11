@@ -12,9 +12,17 @@ builder.Services.AddDbContext<RebalancerDbContext>(options =>
 builder.Services.AddScoped<IPersonRepository, PersonRepository>();
 builder.Services.AddScoped<IInstitutionRepository, InstitutionRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ISecurityRepository, SecurityRepository>();
+builder.Services.AddScoped<IHoldingRepository, HoldingRepository>();
 builder.Services.AddScoped<IAssetCategoryRepository, AssetCategoryRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
+
+// Add HttpClient for Yahoo Finance API
+builder.Services.AddHttpClient("YahooFinance", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+});
+
 builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {

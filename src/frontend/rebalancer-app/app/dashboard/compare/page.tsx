@@ -291,18 +291,18 @@ export default function ComparePage() {
             </tbody>
           </table>
 
-          {compareResult.unmappedPositions.length > 0 && (
+          {compareResult.unmappedHoldings.length > 0 && (
             <div className="p-4 border-t bg-yellow-50">
               <h3 className="font-semibold text-yellow-800 mb-2">
-                Unmapped Positions ({compareResult.unmappedPositions.length})
+                Unmapped Holdings ({compareResult.unmappedHoldings.length})
               </h3>
               <p className="text-sm text-yellow-700 mb-2">
-                These positions don&apos;t have an asset category assigned and are not included in the comparison:
+                These holdings don&apos;t have an asset category assigned and are not included in the comparison:
               </p>
               <ul className="list-disc list-inside text-sm text-yellow-700">
-                {compareResult.unmappedPositions.map((pos) => (
-                  <li key={pos.positionId}>
-                    {pos.positionName} - ${pos.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {compareResult.unmappedHoldings.map((h) => (
+                  <li key={h.holdingId}>
+                    {h.ticker} ({h.securityName}) - ${h.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </li>
                 ))}
               </ul>
@@ -420,16 +420,16 @@ export default function ComparePage() {
                     </div>
                   </div>
 
-                  {/* Position Recommendations */}
+                  {/* Holding Recommendations */}
                   <div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                      Position Recommendations
+                      Holding Recommendations
                     </h4>
                     <div className="bg-gray-50 rounded-md overflow-hidden">
                       <table className="min-w-full text-sm">
                         <thead>
                           <tr className="border-b bg-gray-100">
-                            <th className="text-left py-2 px-3">Position</th>
+                            <th className="text-left py-2 px-3">Holding</th>
                             <th className="text-left py-2 px-3">Category</th>
                             <th className="text-right py-2 px-3">Current Value</th>
                             <th className="text-right py-2 px-3">Change</th>
@@ -437,47 +437,47 @@ export default function ComparePage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {account.positionRecommendations.map((pos, idx) => (
-                            <tr key={pos.positionId || `new-${idx}`} className="border-b last:border-b-0">
+                          {account.holdingRecommendations.map((h, idx) => (
+                            <tr key={h.holdingId || `new-${idx}`} className="border-b last:border-b-0">
                               <td className="py-2 px-3 font-medium">
-                                {pos.positionName}
+                                {h.ticker} <span className="text-gray-500 font-normal">({h.securityName})</span>
                               </td>
                               <td className="py-2 px-3 text-gray-600">
-                                {pos.categoryName || '-'}
+                                {h.categoryName || '-'}
                               </td>
                               <td className="py-2 px-3 text-right">
-                                ${pos.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                ${h.currentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                               </td>
                               <td
                                 className={`py-2 px-3 text-right font-medium ${
-                                  pos.suggestedChange > 0
+                                  h.suggestedChange > 0
                                     ? 'text-green-600'
-                                    : pos.suggestedChange < 0
+                                    : h.suggestedChange < 0
                                     ? 'text-red-600'
                                     : 'text-gray-500'
                                 }`}
                               >
-                                {pos.suggestedChange !== 0 && (
+                                {h.suggestedChange !== 0 && (
                                   <>
-                                    {pos.suggestedChange > 0 ? '+' : ''}
-                                    ${pos.suggestedChange.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    {h.suggestedChange > 0 ? '+' : ''}
+                                    ${h.suggestedChange.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                   </>
                                 )}
-                                {pos.suggestedChange === 0 && '-'}
+                                {h.suggestedChange === 0 && '-'}
                               </td>
                               <td className="py-2 px-3">
                                 <span
                                   className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                                    pos.recommendation.startsWith('Buy')
+                                    h.recommendation.startsWith('Buy')
                                       ? 'bg-green-100 text-green-800'
-                                      : pos.recommendation.startsWith('Sell')
+                                      : h.recommendation.startsWith('Sell')
                                       ? 'bg-red-100 text-red-800'
-                                      : pos.recommendation === 'Assign category'
+                                      : h.recommendation === 'Assign category'
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-gray-100 text-gray-600'
                                   }`}
                                 >
-                                  {pos.recommendation}
+                                  {h.recommendation}
                                 </span>
                               </td>
                             </tr>

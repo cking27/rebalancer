@@ -8,68 +8,71 @@ namespace rebalancer.API.Controllers;
 public class AllocationController : ControllerBase
 {
     private readonly IAccountRepository _accountRepository;
-    private readonly IPositionRepository _positionRepository;
+    private readonly IHoldingRepository _holdingRepository;
     private readonly ILogger<AllocationController> _logger;
 
     public AllocationController(
         IAccountRepository accountRepository,
-        IPositionRepository positionRepository,
+        IHoldingRepository holdingRepository,
         ILogger<AllocationController> logger)
     {
         _accountRepository = accountRepository;
-        _positionRepository = positionRepository;
+        _holdingRepository = holdingRepository;
         _logger = logger;
     }
 
     [HttpGet]
     public async Task<ActionResult<AllocationSummaryDto>> GetAllocation([FromQuery] int[]? accountIds)
     {
-        var positions = new List<Position>();
+        var holdings = new List<Holding>();
 
         if (accountIds != null && accountIds.Length > 0)
         {
             foreach (var accountId in accountIds)
             {
-                var accountPositions = await _positionRepository.GetByAccountIdAsync(accountId);
-                positions.AddRange(accountPositions);
+                var accountHoldings = await _holdingRepository.GetByAccountIdAsync(accountId);
+                holdings.AddRange(accountHoldings);
             }
         }
         else
         {
-            positions = await _positionRepository.GetAsync();
+            holdings = await _holdingRepository.GetAsync();
         }
 
-        var totalValue = positions.Sum(p => p.Value);
+        var totalValue = holdings.Sum(h => h.Value);
 
-        var byAssetClass = positions
-            .GroupBy(p => p.AssetClass)
+        var byAssetClass = holdings
+            .Where(h => h.Security != null)
+            .GroupBy(h => h.Security!.AssetClass)
             .Select(g => new AllocationItemDto
             {
                 Category = g.Key.ToString(),
-                Value = g.Sum(p => p.Value),
-                Percentage = totalValue > 0 ? Math.Round((g.Sum(p => p.Value) / totalValue) * 100, 2) : 0
+                Value = g.Sum(h => h.Value),
+                Percentage = totalValue > 0 ? Math.Round((g.Sum(h => h.Value) / totalValue) * 100, 2) : 0
             })
             .OrderByDescending(a => a.Value)
             .ToList();
 
-        var byPositionType = positions
-            .GroupBy(p => p.PositionType)
+        var byPositionType = holdings
+            .Where(h => h.Security != null)
+            .GroupBy(h => h.Security!.PositionType)
             .Select(g => new AllocationItemDto
             {
                 Category = g.Key.ToString(),
-                Value = g.Sum(p => p.Value),
-                Percentage = totalValue > 0 ? Math.Round((g.Sum(p => p.Value) / totalValue) * 100, 2) : 0
+                Value = g.Sum(h => h.Value),
+                Percentage = totalValue > 0 ? Math.Round((g.Sum(h => h.Value) / totalValue) * 100, 2) : 0
             })
             .OrderByDescending(a => a.Value)
             .ToList();
 
-        var byPosition = positions
-            .GroupBy(p => p.Name)
+        var byPosition = holdings
+            .Where(h => h.Security != null)
+            .GroupBy(h => h.Security!.Ticker)
             .Select(g => new AllocationItemDto
             {
                 Category = g.Key,
-                Value = g.Sum(p => p.Value),
-                Percentage = totalValue > 0 ? Math.Round((g.Sum(p => p.Value) / totalValue) * 100, 2) : 0
+                Value = g.Sum(h => h.Value),
+                Percentage = totalValue > 0 ? Math.Round((g.Sum(h => h.Value) / totalValue) * 100, 2) : 0
             })
             .OrderByDescending(a => a.Value)
             .ToList();

@@ -116,9 +116,9 @@ public class ModelController : ControllerBase
         if (model == null)
             return NotFound();
 
-        var positions = await _modelRepository.GetPositionsByAccountIdsAsync(request.AccountIds);
+        var holdings = await _modelRepository.GetHoldingsByAccountIdsAsync(request.AccountIds);
         var allCategories = await _categoryRepository.GetAsync();
-        var totalValue = positions.Sum(p => p.Value);
+        var totalValue = holdings.Sum(h => h.Value);
 
         if (totalValue == 0)
         {
@@ -127,11 +127,12 @@ public class ModelController : ControllerBase
                 ModelName = model.Name,
                 TotalValue = 0,
                 Comparisons = new List<CategoryComparisonDto>(),
-                UnmappedPositions = positions.Select(p => new UnmappedPositionDto
+                UnmappedHoldings = holdings.Select(h => new UnmappedHoldingDto
                 {
-                    PositionId = p.Id,
-                    PositionName = p.Name,
-                    Value = p.Value
+                    HoldingId = h.Id,
+                    Ticker = h.Security?.Ticker ?? "Unknown",
+                    SecurityName = h.Security?.Name ?? "Unknown",
+                    Value = h.Value
                 }).ToList()
             });
         }
@@ -143,13 +144,11 @@ public class ModelController : ControllerBase
         var allocationByCategoryId = model.Allocations.ToDictionary(a => a.AssetCategoryId, a => a.TargetPercentage);
 
         // Calculate effective percentage for a category by walking up the parent chain
-        // Child percentages are relative to parent, so we multiply through the hierarchy
         decimal GetEffectivePercentage(int categoryId)
         {
             if (!allocationByCategoryId.TryGetValue(categoryId, out var percentage))
                 return 0;
 
-            // Walk up the parent chain, multiplying percentages
             decimal effective = percentage;
             var current = categoryById.GetValueOrDefault(categoryId);
 
@@ -158,7 +157,6 @@ public class ModelController : ControllerBase
                 var parentId = current.ParentId.Value;
                 if (allocationByCategoryId.TryGetValue(parentId, out var parentPercentage))
                 {
-                    // Parent percentage contributes to effective percentage
                     effective = (effective * parentPercentage) / 100;
                 }
                 current = categoryById.GetValueOrDefault(parentId);
@@ -182,21 +180,82 @@ public class ModelController : ControllerBase
             return result;
         }
 
-        // Group positions by category
-        var positionsByCategory = positions
-            .Where(p => p.AssetCategoryId.HasValue)
-            .GroupBy(p => p.AssetCategoryId!.Value)
-            .ToDictionary(g => g.Key, g => g.Sum(p => p.Value));
+        // Recursively resolve a security's value into category contributions.
+        // Composite securities (those with Compositions) split proportionally across components.
+        // Returns the total value successfully attributed to any category.
+        decimal ResolveSecurityToCategories(Security security, decimal value, Dictionary<int, decimal> result, HashSet<int> visited)
+        {
+            if (visited.Contains(security.Id)) return 0;
+            visited.Add(security.Id);
 
-        // Track which categories are covered by model allocations (for unmapped calculation)
+            if (security.Compositions.Any())
+            {
+                decimal resolved = 0;
+                foreach (var comp in security.Compositions)
+                {
+                    if (comp.ComponentSecurity != null)
+                    {
+                        var portion = value * (comp.Percentage / 100m);
+                        resolved += ResolveSecurityToCategories(comp.ComponentSecurity, portion, result, new HashSet<int>(visited));
+                    }
+                }
+                return resolved;
+            }
+
+            if (security.AssetCategoryId.HasValue)
+            {
+                result.TryGetValue(security.AssetCategoryId.Value, out var existing);
+                result[security.AssetCategoryId.Value] = existing + value;
+                return value;
+            }
+
+            return 0;
+        }
+
+        // Resolve the value from a security that lands in a specific set of category IDs.
+        decimal ResolveSecurityToCategorySet(Security security, decimal value, ISet<int> targetCategories, HashSet<int> visited)
+        {
+            if (visited.Contains(security.Id)) return 0;
+            visited.Add(security.Id);
+
+            if (security.Compositions.Any())
+            {
+                decimal total = 0;
+                foreach (var comp in security.Compositions)
+                {
+                    if (comp.ComponentSecurity != null)
+                    {
+                        var portion = value * (comp.Percentage / 100m);
+                        total += ResolveSecurityToCategorySet(comp.ComponentSecurity, portion, targetCategories, new HashSet<int>(visited));
+                    }
+                }
+                return total;
+            }
+
+            return security.AssetCategoryId.HasValue && targetCategories.Contains(security.AssetCategoryId.Value)
+                ? value
+                : 0;
+        }
+
+        // Group holdings by category, expanding composite securities into proportional contributions
+        var holdingsByCategory = new Dictionary<int, decimal>();
+        var mappedHoldingIds = new HashSet<int>();
+        foreach (var holding in holdings)
+        {
+            if (holding.Security == null) continue;
+            var resolved = ResolveSecurityToCategories(holding.Security, holding.Value, holdingsByCategory, new HashSet<int>());
+            if (resolved > 0) mappedHoldingIds.Add(holding.Id);
+        }
+
+        // Track which categories are covered by model allocations
         var coveredCategoryIds = new HashSet<int>();
 
-        // Determine which allocations are "leaf" allocations (no child has an allocation)
+        // Determine which allocations are "leaf" allocations
         var categoriesWithAllocations = new HashSet<int>(allocationByCategoryId.Keys);
         bool IsLeafAllocation(int categoryId)
         {
             var descendants = GetCategoryAndDescendants(categoryId);
-            descendants.Remove(categoryId); // exclude self
+            descendants.Remove(categoryId);
             return !descendants.Any(d => categoriesWithAllocations.Contains(d));
         }
 
@@ -213,26 +272,51 @@ public class ModelController : ControllerBase
             return depth;
         }
 
+        // Sort a flat list into depth-first tree order (parent immediately followed by its children)
+        List<T> SortDepthFirst<T>(List<T> items, Func<T, int> getCategoryId, Func<T, string> getName)
+        {
+            var result = new List<T>();
+            var roots = items
+                .Where(c => {
+                    var parentId = categoryById.GetValueOrDefault(getCategoryId(c))?.ParentId;
+                    return parentId == null || !items.Any(p => getCategoryId(p) == parentId);
+                })
+                .OrderBy(getName)
+                .ToList();
+
+            void AddWithChildren(T item)
+            {
+                result.Add(item);
+                var catId = getCategoryId(item);
+                foreach (var child in items
+                    .Where(c => categoryById.GetValueOrDefault(getCategoryId(c))?.ParentId == catId)
+                    .OrderBy(getName))
+                {
+                    AddWithChildren(child);
+                }
+            }
+
+            foreach (var root in roots)
+                AddWithChildren(root);
+
+            return result;
+        }
+
         var comparisons = new List<CategoryComparisonDto>();
         foreach (var allocation in model.Allocations)
         {
-            // Get this category and all its descendants
             var categoryIds = GetCategoryAndDescendants(allocation.AssetCategoryId);
             foreach (var catId in categoryIds)
             {
                 coveredCategoryIds.Add(catId);
             }
 
-            // Sum values from all matching categories
             var actualValue = categoryIds
-                .Where(catId => positionsByCategory.ContainsKey(catId))
-                .Sum(catId => positionsByCategory[catId]);
+                .Where(catId => holdingsByCategory.ContainsKey(catId))
+                .Sum(catId => holdingsByCategory[catId]);
 
             var actualPercentage = (actualValue / totalValue) * 100;
-
-            // Calculate effective target percentage (for hierarchical allocations)
             var effectiveTargetPercentage = GetEffectivePercentage(allocation.AssetCategoryId);
-
             var differencePercentage = actualPercentage - effectiveTargetPercentage;
             var targetValue = (effectiveTargetPercentage / 100) * totalValue;
             var differenceValue = actualValue - targetValue;
@@ -242,7 +326,6 @@ public class ModelController : ControllerBase
 
             if (!isLeaf)
             {
-                // Parent category - just show informational status
                 if (Math.Abs(differencePercentage) < 0.5m)
                     recommendation = "On target";
                 else if (differenceValue > 0)
@@ -252,7 +335,6 @@ public class ModelController : ControllerBase
             }
             else
             {
-                // Leaf allocation - give actionable recommendation
                 if (differenceValue > 0)
                     recommendation = $"Sell ${Math.Abs(differenceValue):N0}";
                 else if (differenceValue < 0)
@@ -276,39 +358,40 @@ public class ModelController : ControllerBase
             });
         }
 
-        // Sort comparisons by hierarchy (parent first, then children)
-        comparisons = comparisons.OrderBy(c => c.Depth).ThenBy(c => c.CategoryName).ToList();
+        comparisons = SortDepthFirst(comparisons, c => c.CategoryId, c => c.CategoryName);
 
-        // Unmapped = no category OR category not covered by any model allocation
-        var unmappedPositions = positions
-            .Where(p => !p.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(p.AssetCategoryId.Value))
-            .Select(p => new UnmappedPositionDto
+        // Unmapped = resolved to no categories, OR all resolved categories are outside the model
+        var unmappedHoldings = holdings
+            .Where(h => {
+                if (h.Security == null) return true;
+                if (!mappedHoldingIds.Contains(h.Id)) return true;
+                // Composite: check if any contribution lands in a covered category
+                if (h.Security.Compositions.Any())
+                    return ResolveSecurityToCategorySet(h.Security, h.Value, coveredCategoryIds, new HashSet<int>()) == 0;
+                return !h.Security.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(h.Security.AssetCategoryId.Value);
+            })
+            .Select(h => new UnmappedHoldingDto
             {
-                PositionId = p.Id,
-                PositionName = p.Name,
-                Value = p.Value
+                HoldingId = h.Id,
+                Ticker = h.Security?.Ticker ?? "Unknown",
+                SecurityName = h.Security?.Name ?? "Unknown",
+                Value = h.Value
             }).ToList();
 
         // === Per-Account Breakdowns ===
         var accountBreakdowns = new List<AccountBreakdownDto>();
-        var positionsByAccount = positions.GroupBy(p => p.AccountId);
+        var holdingsByAccount = holdings.GroupBy(h => h.AccountId);
 
-        foreach (var accountGroup in positionsByAccount)
+        foreach (var accountGroup in holdingsByAccount)
         {
-            var accountPositions = accountGroup.ToList();
-            var account = accountPositions.First().Account;
-            var accountValue = accountPositions.Sum(p => p.Value);
+            var accountHoldings = accountGroup.ToList();
+            var account = accountHoldings.First().Account;
+            var accountValue = accountHoldings.Sum(h => h.Value);
 
             if (accountValue == 0) continue;
 
             var accountCategoryComparisons = new List<AccountCategoryComparisonDto>();
-            var positionRecommendations = new List<PositionRecommendationDto>();
-
-            // Group this account's positions by category
-            var accountPositionsByCategory = accountPositions
-                .Where(p => p.AssetCategoryId.HasValue)
-                .GroupBy(p => p.AssetCategoryId!.Value)
-                .ToDictionary(g => g.Key, g => g.ToList());
+            var holdingRecommendations = new List<HoldingRecommendationDto>();
 
             // For each allocation in the model, calculate this account's target vs actual
             foreach (var allocation in model.Allocations)
@@ -316,13 +399,10 @@ public class ModelController : ControllerBase
                 var effectiveTargetPercentage = GetEffectivePercentage(allocation.AssetCategoryId);
                 var targetValue = (effectiveTargetPercentage / 100) * accountValue;
 
-                // Get positions in this account matching this category (including descendants)
                 var categoryIds = GetCategoryAndDescendants(allocation.AssetCategoryId);
-                var matchingPositions = accountPositions
-                    .Where(p => p.AssetCategoryId.HasValue && categoryIds.Contains(p.AssetCategoryId.Value))
-                    .ToList();
-
-                var actualValue = matchingPositions.Sum(p => p.Value);
+                var actualValue = accountHoldings
+                    .Where(h => h.Security != null)
+                    .Sum(h => ResolveSecurityToCategorySet(h.Security!, h.Value, categoryIds, new HashSet<int>()));
                 var actualPercentage = (actualValue / accountValue) * 100;
                 var differenceValue = actualValue - targetValue;
 
@@ -342,32 +422,52 @@ public class ModelController : ControllerBase
                 });
             }
 
-            // Sort by depth
-            accountCategoryComparisons = accountCategoryComparisons
-                .OrderBy(c => c.Depth)
-                .ThenBy(c => c.CategoryName)
-                .ToList();
+            accountCategoryComparisons = SortDepthFirst(accountCategoryComparisons, c => c.CategoryId, c => c.CategoryName);
 
-            // Generate position-level recommendations
-            // Strategy: For each leaf category, distribute the difference across positions
+            // Generate holding-level recommendations
             var leafComparisons = accountCategoryComparisons.Where(c => c.IsLeaf).ToList();
 
             foreach (var leafComp in leafComparisons)
             {
                 var categoryIds = GetCategoryAndDescendants(leafComp.CategoryId);
-                var categoryPositions = accountPositions
-                    .Where(p => p.AssetCategoryId.HasValue && categoryIds.Contains(p.AssetCategoryId.Value))
+                // Simple (non-composite) holdings that directly map to this category
+                var categoryHoldings = accountHoldings
+                    .Where(h => h.Security != null
+                        && !h.Security.Compositions.Any()
+                        && h.Security.AssetCategoryId.HasValue
+                        && categoryIds.Contains(h.Security.AssetCategoryId.Value))
                     .ToList();
 
-                if (categoryPositions.Count == 0)
+                // Composite holdings that contribute to this category (shown as Hold, no share-level recommendation)
+                var compositeHoldings = accountHoldings
+                    .Where(h => h.Security?.Compositions.Any() == true
+                        && ResolveSecurityToCategorySet(h.Security!, h.Value, categoryIds, new HashSet<int>()) > 0)
+                    .ToList();
+                foreach (var holding in compositeHoldings)
                 {
-                    // Need to buy but no existing position - suggest buying in this category
-                    if (leafComp.DifferenceValue < -10) // Only if difference is meaningful
+                    var contribution = ResolveSecurityToCategorySet(holding.Security!, holding.Value, categoryIds, new HashSet<int>());
+                    holdingRecommendations.Add(new HoldingRecommendationDto
                     {
-                        positionRecommendations.Add(new PositionRecommendationDto
+                        HoldingId = holding.Id,
+                        Ticker = holding.Security!.Ticker,
+                        SecurityName = holding.Security.Name,
+                        CategoryId = leafComp.CategoryId,
+                        CategoryName = leafComp.CategoryName,
+                        CurrentValue = Math.Round(contribution, 2),
+                        SuggestedChange = 0,
+                        Recommendation = "Hold (composite)"
+                    });
+                }
+
+                if (categoryHoldings.Count == 0)
+                {
+                    if (leafComp.DifferenceValue < -10)
+                    {
+                        holdingRecommendations.Add(new HoldingRecommendationDto
                         {
-                            PositionId = 0,
-                            PositionName = $"[New {leafComp.CategoryName} position]",
+                            HoldingId = 0,
+                            Ticker = $"[New {leafComp.CategoryName}]",
+                            SecurityName = $"[New {leafComp.CategoryName} position]",
                             CategoryId = leafComp.CategoryId,
                             CategoryName = leafComp.CategoryName,
                             CurrentValue = 0,
@@ -376,23 +476,21 @@ public class ModelController : ControllerBase
                         });
                     }
                 }
-                else if (Math.Abs(leafComp.DifferenceValue) > 10) // Only if difference is meaningful
+                else if (Math.Abs(leafComp.DifferenceValue) > 10)
                 {
-                    // Distribute the change proportionally across existing positions
-                    var totalCategoryValue = categoryPositions.Sum(p => p.Value);
+                    var totalCategoryValue = categoryHoldings.Sum(h => h.Value);
 
-                    foreach (var position in categoryPositions)
+                    foreach (var holding in categoryHoldings)
                     {
                         decimal suggestedChange;
                         if (totalCategoryValue > 0)
                         {
-                            // Proportional distribution based on current value
-                            var proportion = position.Value / totalCategoryValue;
-                            suggestedChange = leafComp.DifferenceValue * proportion * -1; // Negative diff means buy
+                            var proportion = holding.Value / totalCategoryValue;
+                            suggestedChange = leafComp.DifferenceValue * proportion * -1;
                         }
                         else
                         {
-                            suggestedChange = leafComp.DifferenceValue * -1 / categoryPositions.Count;
+                            suggestedChange = leafComp.DifferenceValue * -1 / categoryHoldings.Count;
                         }
 
                         string recommendation;
@@ -403,13 +501,14 @@ public class ModelController : ControllerBase
                         else
                             recommendation = "Hold";
 
-                        positionRecommendations.Add(new PositionRecommendationDto
+                        holdingRecommendations.Add(new HoldingRecommendationDto
                         {
-                            PositionId = position.Id,
-                            PositionName = position.Name,
-                            CategoryId = position.AssetCategoryId,
-                            CategoryName = position.AssetCategory?.Name,
-                            CurrentValue = position.Value,
+                            HoldingId = holding.Id,
+                            Ticker = holding.Security?.Ticker ?? "Unknown",
+                            SecurityName = holding.Security?.Name ?? "Unknown",
+                            CategoryId = holding.Security?.AssetCategoryId,
+                            CategoryName = holding.Security?.AssetCategory?.Name,
+                            CurrentValue = holding.Value,
                             SuggestedChange = Math.Round(suggestedChange, 2),
                             Recommendation = recommendation
                         });
@@ -417,16 +516,16 @@ public class ModelController : ControllerBase
                 }
                 else
                 {
-                    // On target - still list positions as "Hold"
-                    foreach (var position in categoryPositions)
+                    foreach (var holding in categoryHoldings)
                     {
-                        positionRecommendations.Add(new PositionRecommendationDto
+                        holdingRecommendations.Add(new HoldingRecommendationDto
                         {
-                            PositionId = position.Id,
-                            PositionName = position.Name,
-                            CategoryId = position.AssetCategoryId,
-                            CategoryName = position.AssetCategory?.Name,
-                            CurrentValue = position.Value,
+                            HoldingId = holding.Id,
+                            Ticker = holding.Security?.Ticker ?? "Unknown",
+                            SecurityName = holding.Security?.Name ?? "Unknown",
+                            CategoryId = holding.Security?.AssetCategoryId,
+                            CategoryName = holding.Security?.AssetCategory?.Name,
+                            CurrentValue = holding.Value,
                             SuggestedChange = 0,
                             Recommendation = "Hold"
                         });
@@ -434,20 +533,26 @@ public class ModelController : ControllerBase
                 }
             }
 
-            // Add unmapped positions in this account
-            var unmappedInAccount = accountPositions
-                .Where(p => !p.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(p.AssetCategoryId.Value))
+            // Add unmapped holdings in this account
+            var unmappedInAccount = accountHoldings
+                .Where(h => {
+                    if (h.Security == null) return true;
+                    if (h.Security.Compositions.Any())
+                        return ResolveSecurityToCategorySet(h.Security, h.Value, coveredCategoryIds, new HashSet<int>()) == 0;
+                    return !h.Security.AssetCategoryId.HasValue || !coveredCategoryIds.Contains(h.Security.AssetCategoryId.Value);
+                })
                 .ToList();
 
-            foreach (var position in unmappedInAccount)
+            foreach (var holding in unmappedInAccount)
             {
-                positionRecommendations.Add(new PositionRecommendationDto
+                holdingRecommendations.Add(new HoldingRecommendationDto
                 {
-                    PositionId = position.Id,
-                    PositionName = position.Name,
-                    CategoryId = position.AssetCategoryId,
-                    CategoryName = position.AssetCategory?.Name ?? "[Unmapped]",
-                    CurrentValue = position.Value,
+                    HoldingId = holding.Id,
+                    Ticker = holding.Security?.Ticker ?? "Unknown",
+                    SecurityName = holding.Security?.Name ?? "Unknown",
+                    CategoryId = holding.Security?.AssetCategoryId,
+                    CategoryName = holding.Security?.AssetCategory?.Name ?? "[Unmapped]",
+                    CurrentValue = holding.Value,
                     SuggestedChange = 0,
                     Recommendation = "Assign category"
                 });
@@ -460,7 +565,7 @@ public class ModelController : ControllerBase
                 AccountValue = accountValue,
                 PercentOfTotal = Math.Round((accountValue / totalValue) * 100, 2),
                 CategoryComparisons = accountCategoryComparisons,
-                PositionRecommendations = positionRecommendations.OrderBy(p => p.CategoryName).ThenBy(p => p.PositionName).ToList()
+                HoldingRecommendations = holdingRecommendations.OrderBy(h => h.CategoryName).ThenBy(h => h.Ticker).ToList()
             });
         }
 
@@ -469,7 +574,7 @@ public class ModelController : ControllerBase
             ModelName = model.Name,
             TotalValue = totalValue,
             Comparisons = comparisons,
-            UnmappedPositions = unmappedPositions,
+            UnmappedHoldings = unmappedHoldings,
             AccountBreakdowns = accountBreakdowns.OrderBy(a => a.AccountName).ToList()
         });
     }
@@ -521,7 +626,7 @@ public class CompareResultDto
     public string ModelName { get; set; } = string.Empty;
     public decimal TotalValue { get; set; }
     public List<CategoryComparisonDto> Comparisons { get; set; } = new();
-    public List<UnmappedPositionDto> UnmappedPositions { get; set; } = new();
+    public List<UnmappedHoldingDto> UnmappedHoldings { get; set; } = new();
     public List<AccountBreakdownDto> AccountBreakdowns { get; set; } = new();
 }
 
@@ -532,7 +637,7 @@ public class AccountBreakdownDto
     public decimal AccountValue { get; set; }
     public decimal PercentOfTotal { get; set; }
     public List<AccountCategoryComparisonDto> CategoryComparisons { get; set; } = new();
-    public List<PositionRecommendationDto> PositionRecommendations { get; set; } = new();
+    public List<HoldingRecommendationDto> HoldingRecommendations { get; set; } = new();
 }
 
 public class AccountCategoryComparisonDto
@@ -548,10 +653,11 @@ public class AccountCategoryComparisonDto
     public bool IsLeaf { get; set; }
 }
 
-public class PositionRecommendationDto
+public class HoldingRecommendationDto
 {
-    public int PositionId { get; set; }
-    public string PositionName { get; set; } = string.Empty;
+    public int HoldingId { get; set; }
+    public string Ticker { get; set; } = string.Empty;
+    public string SecurityName { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
     public string? CategoryName { get; set; }
     public decimal CurrentValue { get; set; }
@@ -573,9 +679,10 @@ public class CategoryComparisonDto
     public bool IsLeaf { get; set; }
 }
 
-public class UnmappedPositionDto
+public class UnmappedHoldingDto
 {
-    public int PositionId { get; set; }
-    public string PositionName { get; set; } = string.Empty;
+    public int HoldingId { get; set; }
+    public string Ticker { get; set; } = string.Empty;
+    public string SecurityName { get; set; } = string.Empty;
     public decimal Value { get; set; }
 }

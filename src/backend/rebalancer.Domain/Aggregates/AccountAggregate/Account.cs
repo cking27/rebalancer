@@ -11,7 +11,7 @@ public class Account
 
     public Institution? Institution { get; private set; }
     public Person? Owner { get; private set; }
-    public ICollection<Position> Positions { get; private set; } = new List<Position>();
+    public ICollection<Holding> Holdings { get; private set; } = new List<Holding>();
 
     private Account()
     {

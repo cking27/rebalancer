@@ -28,13 +28,14 @@ public class AccountRepository : IAccountRepository
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<Account?> GetWithPositionsAsync(int id)
+    public async Task<Account?> GetWithHoldingsAsync(int id)
     {
         return await _context.Accounts
             .Include(a => a.Institution)
             .Include(a => a.Owner)
-            .Include(a => a.Positions)
-                .ThenInclude(p => p.AssetCategory)
+            .Include(a => a.Holdings)
+                .ThenInclude(h => h.Security)
+                    .ThenInclude(s => s!.AssetCategory)
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 

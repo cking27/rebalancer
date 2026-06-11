@@ -64,12 +64,18 @@ public class ModelRepository : IModelRepository
         }
     }
 
-    public async Task<List<Position>> GetPositionsByAccountIdsAsync(List<int> accountIds)
+    public async Task<List<Holding>> GetHoldingsByAccountIdsAsync(List<int> accountIds)
     {
-        return await _context.Positions
-            .Include(p => p.AssetCategory)
-            .Include(p => p.Account)
-            .Where(p => accountIds.Contains(p.AccountId))
+        return await _context.Holdings
+            .Include(h => h.Security)
+                .ThenInclude(s => s!.AssetCategory)
+            .Include(h => h.Security)
+                .ThenInclude(s => s!.Compositions)
+                    .ThenInclude(c => c.ComponentSecurity)
+                        .ThenInclude(cs => cs!.Compositions)
+                            .ThenInclude(c2 => c2.ComponentSecurity)
+            .Include(h => h.Account)
+            .Where(h => accountIds.Contains(h.AccountId))
             .ToListAsync();
     }
 }
