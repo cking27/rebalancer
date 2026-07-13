@@ -1,0 +1,19 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+WORKDIR /src
+
+COPY rebalancer.API/*.csproj rebalancer.API/
+COPY rebalancer.Domain/*.csproj rebalancer.Domain/
+COPY rebalancer.Infrastructure/*.csproj rebalancer.Infrastructure/
+RUN dotnet restore rebalancer.API/rebalancer.API.csproj
+
+COPY . .
+RUN dotnet publish rebalancer.API/rebalancer.API.csproj -c Release -o /app/publish --no-restore
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+EXPOSE 80
+ENTRYPOINT ["dotnet", "rebalancer.API.dll"]

@@ -1,0 +1,23 @@
+services:
+  backend:
+    image: ghcr.io/cking27/rebalancer-backend:latest
+    restart: unless-stopped
+    ports:
+      - "5001:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Database=rebalancer;Username=postgres;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: rebalancer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
