@@ -23,12 +23,12 @@ export default async function Page() {
             <strong>Welcome to KingRebal.</strong>
           </p>
           <div className="flex gap-3">
-            <SignInButton mode="modal">
+            <SignInButton mode="modal" forceRedirectUrl="/dashboard">
               <button className="rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base">
                 Log in
               </button>
             </SignInButton>
-            <SignUpButton mode="modal">
+            <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
               <button className="rounded-lg bg-gray-200 px-6 py-3 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-300 md:text-base">
                 Sign up
               </button>
