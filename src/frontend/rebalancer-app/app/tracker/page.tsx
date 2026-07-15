@@ -207,7 +207,7 @@ export default function Tracker() {
       <div style={{ background: "#1a1a24", borderRadius: 12, padding: "18px 16px", border: "1px solid #2a2a38", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ fontSize: 12, color: "#6b6b80", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Enter today's closing NAVs
+            Enter today&apos;s closing NAVs
           </div>
           <button
             onClick={fetchPrices}
@@ -337,7 +337,7 @@ export default function Tracker() {
       )}
 
       <p style={{ fontSize: 11, color: "#44445a", marginTop: 20, lineHeight: 1.6 }}>
-        FFTHX ghost = 23,203.375 units (return proxy for the Freedom 2035 K6 class actually sold, credited +0.25%/yr for the K6 vs retail expense difference). 3-fund = 845.999 FXAIX · 5,541.605 FSGGX · 9,574.634 FXNAX as of Jul 10, 2026 — update the share constants after dividends reinvest or new contributions. Enter each fund's closing NAV after 6pm ET when Fidelity posts them. Not financial advice.
+        FFTHX ghost = 23,203.375 units (return proxy for the Freedom 2035 K6 class actually sold, credited +0.25%/yr for the K6 vs retail expense difference). 3-fund = 845.999 FXAIX · 5,541.605 FSGGX · 9,574.634 FXNAX as of Jul 10, 2026 — update the share constants after dividends reinvest or new contributions. Enter each fund&apos;s closing NAV after 6pm ET when Fidelity posts them. Not financial advice.
       </p>
     </div>
   );
