@@ -53,7 +53,7 @@ jobs:
           file: src/frontend/rebalancer-app/Dockerfile.prod
           push: true
           build-args: |
-            NEXT_PUBLIC_API_URL=http://54.226.173.27:5001/api
+            NEXT_PUBLIC_API_URL=http://100.57.31.133:5001/api
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           tags: ghcr.io/${{ github.repository_owner }}/rebalancer-frontend:latest
 
