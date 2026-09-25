@@ -3,6 +3,9 @@ import NavLinks from '@/app/ui/dashboard/nav-links';
 import AcmeLogo from '@/app/ui/acme-logo';
 import { PowerIcon } from '@heroicons/react/24/outline';
 
+const buildNumber = process.env.NEXT_PUBLIC_BUILD_NUMBER || 'dev';
+const commitSha = (process.env.NEXT_PUBLIC_COMMIT_SHA || '').slice(0, 7);
+
 export default function SideNav() {
   return (
     <div className="flex h-full flex-col px-3 py-4 md:px-2">
@@ -10,7 +13,7 @@ export default function SideNav() {
         className="mb-2 flex h-20 items-center justify-center rounded-md bg-gray-600 p-2 md:h-32"
         href="/"
       >
-        <div className="w-full h-full">
+        <div className="h-full w-full">
           <AcmeLogo />
         </div>
       </Link>
@@ -23,6 +26,13 @@ export default function SideNav() {
             <div className="hidden md:block">Sign Out</div>
           </button>
         </form>
+      </div>
+      <div
+        className="mt-2 hidden text-center text-xs text-gray-400 md:block"
+        title={process.env.NEXT_PUBLIC_COMMIT_SHA}
+      >
+        Build {buildNumber}
+        {commitSha && ` · ${commitSha}`}
       </div>
     </div>
   );

@@ -55,6 +55,8 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=http://100.57.31.133:5001/api
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_BUILD_NUMBER=${{ github.run_number }}
+            NEXT_PUBLIC_COMMIT_SHA=${{ github.sha }}
           tags: ghcr.io/${{ github.repository_owner }}/rebalancer-frontend:latest
 
   deploy:
