@@ -1,5 +1,5 @@
-# Use the official .NET 6.0 SDK image from the Microsoft Container Registry
-FROM mcr.microsoft.com/dotnet/sdk:6.0
+# Use the official .NET 10.0 SDK image from the Microsoft Container Registry
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
 # Set the working directory
 WORKDIR /app
