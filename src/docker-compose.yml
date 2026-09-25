@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   backend:
-    image: mcr.microsoft.com/dotnet/sdk:6.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     working_dir: /app
     command: /bin/bash -c "dotnet restore && dotnet watch --project rebalancer.API/rebalancer.API.csproj run --no-restore"
     volumes:
@@ -15,7 +15,7 @@ services:
       - db
 
   tests:
-    image: mcr.microsoft.com/dotnet/sdk:6.0
+    image: mcr.microsoft.com/dotnet/sdk:10.0
     working_dir: /app
     command: /bin/bash -c "dotnet restore && dotnet watch --project UnitTests/UnitTests.csproj test --no-restore"
     volumes:

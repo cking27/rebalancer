@@ -17,7 +17,7 @@ docker-compose down -v     # Stop and remove database volume
 docker-compose logs -f backend  # View backend logs
 ```
 
-### Backend Only (requires .NET 6 SDK)
+### Backend Only (requires .NET 10 SDK)
 ```bash
 cd src/backend
 dotnet restore rebalancer.sln
@@ -39,7 +39,7 @@ npm run prettier           # Fix formatting
 
 ## Architecture
 
-### Backend (.NET 6)
+### Backend (.NET 10)
 
 Three-layer clean architecture:
 
