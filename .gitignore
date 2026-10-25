@@ -51,3 +51,8 @@ src/backend/rebalancer.API/obj/rebalancer.API.csproj.nuget.g.props
 src/backend/rebalancer.API/obj/project.assets.json
 src/backend/rebalancer.API/obj/project.assets.json
 src/backup.sql
+
+# Environment files with secrets
+.env
+.env.*
+!.env.example
