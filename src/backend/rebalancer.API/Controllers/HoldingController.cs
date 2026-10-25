@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using rebalancer.API.Services;
 using rebalancer.Domain;
 
 namespace rebalancer.API.Controllers;
@@ -40,6 +41,36 @@ public class HoldingController : ControllerBase
     {
         var holdings = await _holdingRepository.GetByAccountIdAsync(accountId);
         return Ok(holdings.Select(MapToDto));
+    }
+
+    [HttpPost("account/{accountId}/import/preview")]
+    public async Task<ActionResult<HoldingImportPreviewDto>> PreviewImport(int accountId, [FromBody] HoldingImportPreviewRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Content))
+            return BadRequest("File is empty");
+
+        var securities = await _securityRepository.GetAsync();
+        return Ok(QuickenImportService.Preview(request.Content, securities));
+    }
+
+    [HttpPost("account/{accountId}/import")]
+    public async Task<ActionResult> ApplyImport(int accountId, [FromBody] HoldingImportApplyRequest request)
+    {
+        if (request.Items.Any(i => i.Shares <= 0))
+            return BadRequest("Shares must be greater than zero");
+
+        if (request.Items.GroupBy(i => i.SecurityId).Any(g => g.Count() > 1))
+            return BadRequest("Each security can only appear once");
+
+        var knownIds = (await _securityRepository.GetAsync()).Select(s => s.Id).ToHashSet();
+        if (request.Items.Any(i => !knownIds.Contains(i.SecurityId)))
+            return BadRequest("Invalid security ID");
+
+        await _holdingRepository.SyncAccountAsync(
+            accountId,
+            request.Items.ToDictionary(i => i.SecurityId, i => i.Shares),
+            request.RemoveMissing);
+        return NoContent();
     }
 
     [HttpPost]
@@ -122,6 +153,40 @@ public class HoldingDto
 public class CreateHoldingRequest
 {
     public int AccountId { get; set; }
+    public int SecurityId { get; set; }
+    public decimal Shares { get; set; }
+}
+
+public class HoldingImportPreviewRequest
+{
+    public string Content { get; set; } = string.Empty;
+}
+
+public class HoldingImportPreviewDto
+{
+    public List<HoldingImportRowDto> Rows { get; set; } = new();
+    public List<string> Warnings { get; set; } = new();
+}
+
+public class HoldingImportRowDto
+{
+    public int Line { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Ticker { get; set; } = string.Empty;
+    public decimal Shares { get; set; }
+    // Suggested match; null when no security matched by ticker or name
+    public int? SecurityId { get; set; }
+}
+
+public class HoldingImportApplyRequest
+{
+    public List<HoldingImportItem> Items { get; set; } = new();
+    // Delete holdings in the account that aren't in Items
+    public bool RemoveMissing { get; set; }
+}
+
+public class HoldingImportItem
+{
     public int SecurityId { get; set; }
     public decimal Shares { get; set; }
 }

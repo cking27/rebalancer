@@ -13,6 +13,8 @@ import {
   UpdateSecurityRequest,
   CreateHoldingRequest,
   UpdateHoldingRequest,
+  HoldingImportPreview,
+  HoldingImportApplyRequest,
   AssetCategory,
   AssetCategoryTree,
   CreateAssetCategoryRequest,
@@ -205,6 +207,20 @@ export async function updateHolding(id: number, data: UpdateHoldingRequest): Pro
 export async function deleteHolding(id: number): Promise<void> {
   return fetchApi<void>(`/Holding/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function previewHoldingImport(accountId: number, content: string): Promise<HoldingImportPreview> {
+  return fetchApi<HoldingImportPreview>(`/Holding/account/${accountId}/import/preview`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function applyHoldingImport(accountId: number, data: HoldingImportApplyRequest): Promise<void> {
+  return fetchApi<void>(`/Holding/account/${accountId}/import`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 
