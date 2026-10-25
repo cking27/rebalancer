@@ -37,6 +37,14 @@ npm run prettier:check     # Check formatting
 npm run prettier           # Fix formatting
 ```
 
+### Secret Scanning
+A gitleaks pre-commit hook in `.githooks/` blocks commits containing secrets; CI runs the same scan on every push. Enable the hook once per clone:
+```bash
+brew install gitleaks
+git config core.hooksPath .githooks
+```
+Never hardcode credentials — use environment variables locally and GitHub Actions secrets for deploys.
+
 ## Architecture
 
 ### Backend (.NET 10)

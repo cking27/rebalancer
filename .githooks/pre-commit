@@ -1,0 +1,17 @@
+#!/bin/sh
+# Blocks commits that contain secrets (API keys, passwords, tokens).
+# Enable once per clone with: git config core.hooksPath .githooks
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so staged changes can't be scanned for secrets."
+  echo "Install it with: brew install gitleaks"
+  echo "(To commit anyway, use: git commit --no-verify)"
+  exit 1
+fi
+
+gitleaks git --pre-commit --staged --redact --no-banner --verbose . || {
+  echo ""
+  echo "pre-commit: possible secret found in staged changes (shown redacted above)."
+  echo "Remove it and use an environment variable or GitHub secret instead."
+  exit 1
+}
