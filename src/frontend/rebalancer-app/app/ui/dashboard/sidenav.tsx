@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import NavLinks from '@/app/ui/dashboard/nav-links';
 import AcmeLogo from '@/app/ui/acme-logo';
+import BuildInfo from '@/app/ui/dashboard/build-info';
 import { PowerIcon } from '@heroicons/react/24/outline';
-
-const buildNumber = process.env.NEXT_PUBLIC_BUILD_NUMBER || 'dev';
-const commitSha = (process.env.NEXT_PUBLIC_COMMIT_SHA || '').slice(0, 7);
 
 export default function SideNav() {
   return (
@@ -27,13 +25,7 @@ export default function SideNav() {
           </button>
         </form>
       </div>
-      <div
-        className="mt-2 hidden text-center text-xs text-gray-400 md:block"
-        title={process.env.NEXT_PUBLIC_COMMIT_SHA}
-      >
-        Build {buildNumber}
-        {commitSha && ` · ${commitSha}`}
-      </div>
+      <BuildInfo />
     </div>
   );
 }

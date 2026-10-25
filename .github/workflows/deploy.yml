@@ -46,6 +46,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Record build time
+        id: meta
+        run: echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -57,6 +61,7 @@ jobs:
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             NEXT_PUBLIC_BUILD_NUMBER=${{ github.run_number }}
             NEXT_PUBLIC_COMMIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_BUILD_TIME=${{ steps.meta.outputs.time }}
           tags: ghcr.io/${{ github.repository_owner }}/rebalancer-frontend:latest
 
   deploy:
