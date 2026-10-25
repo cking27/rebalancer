@@ -68,6 +68,9 @@ jobs:
     name: Deploy to EC2
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -87,17 +90,24 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: POSTGRES_PASSWORD,CLERK_SECRET_KEY,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+          envs: POSTGRES_PASSWORD,CLERK_SECRET_KEY,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,GHCR_USER,GHCR_TOKEN
           script: |
+            set -e
             cd /opt/rebalancer
             cat > .env <<EOF
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
             EOF
+            # Log in with this run's short-lived token so the pull never relies on a stored credential
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
             docker compose -f docker-compose.prod.yml pull
+            docker logout ghcr.io
             docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
