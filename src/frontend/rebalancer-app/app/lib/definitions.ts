@@ -227,6 +227,24 @@ export type UpdateHoldingRequest = {
   shares: number;
 };
 
+export type HoldingImportRow = {
+  line: number;
+  name: string;
+  ticker: string;
+  shares: number;
+  securityId: number | null;
+};
+
+export type HoldingImportPreview = {
+  rows: HoldingImportRow[];
+  warnings: string[];
+};
+
+export type HoldingImportApplyRequest = {
+  items: { securityId: number; shares: number }[];
+  removeMissing: boolean;
+};
+
 // Asset Category Types
 
 export type AssetCategory = {

@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AccountWithHoldings, Holding, Security, PositionType, AssetClass, AssetCategory } from '@/app/lib/definitions';
 import { getAccountWithHoldings, createHolding, updateHolding, deleteHolding, getSecurities, getAssetCategories } from '@/app/lib/api';
-import { ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import HoldingsImport from './holdings-import';
 
 const positionTypeLabels: Record<PositionType, string> = {
   MutualFund: 'Mutual Fund',
@@ -34,6 +35,7 @@ export default function AccountDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newHolding, setNewHolding] = useState({
     securityId: 0,
@@ -185,6 +187,13 @@ export default function AccountDetailPage() {
             Manage Securities
           </Link>
           <button
+            onClick={() => setIsImporting(true)}
+            className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+          >
+            <ArrowUpTrayIcon className="w-5 h-5" />
+            Import from Quicken
+          </button>
+          <button
             onClick={() => setIsAdding(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
           >
@@ -193,6 +202,16 @@ export default function AccountDetailPage() {
           </button>
         </div>
       </div>
+
+      {isImporting && (
+        <HoldingsImport
+          accountId={accountId}
+          holdings={account.holdings}
+          securities={securities}
+          onClose={() => setIsImporting(false)}
+          onImported={fetchAccount}
+        />
+      )}
 
       {isAdding && (
         <div className="bg-gray-50 p-4 rounded-md mb-4">
